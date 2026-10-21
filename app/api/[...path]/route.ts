@@ -6,3 +6,4 @@ const handle = (request: Request) => handleAccountRequest(request, env);
 export const GET = handle;
 export const POST = handle;
 export const PUT = handle;
+export const OPTIONS = handle;

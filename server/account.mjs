@@ -3,6 +3,8 @@ import { createRemoteJWKSet, jwtVerify, SignJWT } from 'jose';
 const GOOGLE_KEYS=createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
 const SESSION_COOKIE='__Host-fmb-session',NONCE_COOKIE='__Host-fmb-nonce';
 const SESSION_AGE=30*86400;
+export const GITHUB_PAGES_ORIGIN='https://zxw20110119-rgb.github.io';
+const PAGES_SESSION_AGE=3600;
 const encoder=new TextEncoder();
 const cookie=(name,value,age)=>`${name}=${value}; Path=/; Max-Age=${age}; HttpOnly; Secure; SameSite=Lax`;
 const cookieValue=(request,name)=>request.headers.get('cookie')?.split(';').map(s=>s.trim()).find(s=>s.startsWith(name+'='))?.slice(name.length+1)||'';
@@ -62,9 +64,65 @@ export function normalizeTimetable(data){
   if(Object.keys(roomMappings).length>2000)fail(400,'Too many room mappings.');
   return {events,roomMappings};
 }
+async function timetableRequest(request,env,user){
+  if(!env.DB)fail(503,'Cloud timetable storage is unavailable.');
+  if(request.method==='GET'){
+    const row=await env.DB.prepare('SELECT payload, revision, updated_at FROM user_timetables WHERE owner_id = ?').bind(user.id).first();
+    return json({timetable:row?JSON.parse(row.payload):null,revision:row?.revision||0,updatedAt:row?.updated_at||null});
+  }
+  if(request.method==='PUT'){
+    const input=await body(request,2_000_000);
+    if(!Number.isSafeInteger(input.revision)||input.revision<0)fail(400,'Invalid timetable revision.');
+    const payload=JSON.stringify(normalizeTimetable(input.timetable)),now=Date.now();
+    const row=input.revision===0
+      ?await env.DB.prepare('INSERT INTO user_timetables (owner_id, payload, revision, updated_at) VALUES (?, ?, 1, ?) ON CONFLICT(owner_id) DO NOTHING RETURNING revision, updated_at').bind(user.id,payload,now).first()
+      :await env.DB.prepare('UPDATE user_timetables SET payload = ?, revision = revision + 1, updated_at = ? WHERE owner_id = ? AND revision = ? RETURNING revision, updated_at').bind(payload,now,user.id,input.revision).first();
+    if(!row)fail(409,'Your timetable changed on another device. Load it or choose Save this timetable.');
+    return json({revision:row.revision,updatedAt:row.updated_at});
+  }
+  return json({error:'Method not allowed.'},405);
+}
+async function readPagesSession(request,env){
+  if(sessionKey(env).length<32)return null;
+  const authorization=request.headers.get('authorization')||'';
+  if(!authorization.startsWith('Bearer ')||authorization.length>12000)return null;
+  try{
+    const {payload,protectedHeader}=await jwtVerify(authorization.slice(7),sessionKey(env),{
+      algorithms:['HS256'],issuer:'find-my-block:pages',audience:'find-my-block:github-pages',maxTokenAge:'1h',
+    });
+    if(protectedHeader.typ!=='fmb-pages-session'||payload.origin!==GITHUB_PAGES_ORIGIN||typeof payload.sub!=='string'||!payload.sub.startsWith('google:')||typeof payload.email!=='string')return null;
+    return {id:payload.sub,email:payload.email,name:typeof payload.name==='string'?payload.name:payload.email};
+  }catch{return null;}
+}
+async function pagesRequest(request,env,path){
+  // Bearer requests never use cookies. CORS is restricted to this owner's Pages origin.
+  if(request.headers.get('origin')!==GITHUB_PAGES_ORIGIN)return json({error:'This website is not allowed to connect.'},403);
+  let response;
+  try{
+    if(!['/api/pages/account','/api/pages/timetable'].includes(path))fail(404,'Not found.');
+    if(request.method==='OPTIONS'){
+      const method=request.headers.get('access-control-request-method');
+      if(!['GET','PUT'].includes(method))fail(405,'Method not allowed.');
+      response=new Response(null,{status:204});
+    }else{
+      const user=await readPagesSession(request,env);if(!user)fail(401,'Reconnect your Google account to continue.');
+      if(path==='/api/pages/account'){
+        if(request.method!=='GET')fail(405,'Method not allowed.');
+        response=json({user,csrf:'',googleClientId:configured(env)?env.GOOGLE_CLIENT_ID:null,configured:configured(env)});
+      }else response=await timetableRequest(request,env,user);
+    }
+  }catch(error){response=json({error:error.status?error.message:'The account service is temporarily unavailable.'},error.status||503);}
+  const headers=new Headers(response.headers);
+  headers.set('Access-Control-Allow-Origin',GITHUB_PAGES_ORIGIN);
+  headers.set('Vary','Origin');headers.set('Access-Control-Allow-Methods','GET, PUT, OPTIONS');
+  headers.set('Access-Control-Allow-Headers','Authorization, Content-Type');headers.set('Access-Control-Max-Age','600');
+  headers.set('Cache-Control','no-store');
+  return new Response(response.body,{status:response.status,headers});
+}
 export async function handleAccountRequest(request,env,options={}){
   try{
     const path=new URL(request.url).pathname;
+    if(path.startsWith('/api/pages/'))return pagesRequest(request,env,path);
     if(path==='/api/account'&&request.method==='GET'){
       const user=await readSession(request,env),existing=cookieValue(request,NONCE_COOKIE),csrf=/^[a-f0-9]{48}$/.test(existing)?existing:nonce();
       return json({user,googleClientId:configured(env)?env.GOOGLE_CLIENT_ID:null,configured:configured(env),csrf},200,[cookie(NONCE_COOKIE,csrf,SESSION_AGE)]);
@@ -85,25 +143,25 @@ export async function handleAccountRequest(request,env,options={}){
       checkOrigin(request);checkCsrf(request,request.headers.get('X-CSRF-Token'));
       return json({ok:true},200,[cookie(SESSION_COOKIE,'',0),cookie(NONCE_COOKIE,'',0)]);
     }
+    if(path==='/api/account/pages-session'&&request.method==='POST'){
+      checkOrigin(request);checkCsrf(request,request.headers.get('X-CSRF-Token'));
+      if(!configured(env))fail(503,'Google sign-in is not configured.');
+      const user=await readSession(request,env);if(!user)fail(401,'Sign in with Google first.');
+      const input=await body(request,2000);
+      if(input.origin!==GITHUB_PAGES_ORIGIN)fail(403,'This website is not allowed to connect.');
+      const expiresAt=(Math.floor(Date.now()/1000)+PAGES_SESSION_AGE)*1000;
+      const accessToken=await new SignJWT({email:user.email,name:user.name,origin:GITHUB_PAGES_ORIGIN})
+        .setProtectedHeader({alg:'HS256',typ:'fmb-pages-session'}).setSubject(user.id)
+        .setIssuer('find-my-block:pages').setAudience('find-my-block:github-pages')
+        .setJti(nonce()).setIssuedAt().setExpirationTime(Math.floor(expiresAt/1000)).sign(sessionKey(env));
+      return json({accessToken,expiresAt,user});
+    }
     if(path==='/api/timetable'){
       const user=await readSession(request,env);if(!user)fail(401,'Sign in to save your timetable.');
-      if(!env.DB)fail(503,'Cloud timetable storage is unavailable.');
-      if(request.method==='GET'){
-        const row=await env.DB.prepare('SELECT payload, revision, updated_at FROM user_timetables WHERE owner_id = ?').bind(user.id).first();
-        return json({timetable:row?JSON.parse(row.payload):null,revision:row?.revision||0,updatedAt:row?.updated_at||null});
-      }
       if(request.method==='PUT'){
         checkOrigin(request);checkCsrf(request,request.headers.get('X-CSRF-Token'));
-        const input=await body(request,2_000_000);
-        if(!Number.isSafeInteger(input.revision)||input.revision<0)fail(400,'Invalid timetable revision.');
-        const payload=JSON.stringify(normalizeTimetable(input.timetable)),now=Date.now();
-        const row=input.revision===0
-          ?await env.DB.prepare('INSERT INTO user_timetables (owner_id, payload, revision, updated_at) VALUES (?, ?, 1, ?) ON CONFLICT(owner_id) DO NOTHING RETURNING revision, updated_at').bind(user.id,payload,now).first()
-          :await env.DB.prepare('UPDATE user_timetables SET payload = ?, revision = revision + 1, updated_at = ? WHERE owner_id = ? AND revision = ? RETURNING revision, updated_at').bind(payload,now,user.id,input.revision).first();
-        if(!row)fail(409,'Your timetable changed on another device. Load it or choose Save this timetable.');
-        return json({revision:row.revision,updatedAt:row.updated_at});
       }
-      return json({error:'Method not allowed.'},405);
+      return await timetableRequest(request,env,user);
     }
     return json({error:'Not found.'},404);
   }catch(error){return json({error:error.status?error.message:'The account service is temporarily unavailable.'},error.status||503);}

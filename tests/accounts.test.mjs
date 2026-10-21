@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { generateKeyPair, exportJWK, createLocalJWKSet, SignJWT } from 'jose';
-import { handleAccountRequest } from '../server/account.mjs';
+import { handleAccountRequest, GITHUB_PAGES_ORIGIN } from '../server/account.mjs';
 
 const origin='https://find-my-block-bhs.zengxuanwen.chatgpt.site';
 const clientId='123456789-test.apps.googleusercontent.com';
@@ -85,4 +85,67 @@ test('sign out removes the session but leaves the saved account data',async()=>{
 test('without owner configuration the site honestly reports Google unavailable',async()=>{
   const response=await handleAccountRequest(new Request(origin+'/api/account'),{SESSION_SECRET:env.SESSION_SECRET,DB},opts);
   const data=await response.json();assert.equal(data.configured,false);assert.equal(data.googleClientId,null);
+});
+async function pagesRequest(path,{token,method='GET',input,requestOrigin=GITHUB_PAGES_ORIGIN,cookies=''}={}){
+  const headers={Origin:requestOrigin};
+  if(token)headers.Authorization='Bearer '+token;
+  if(cookies)headers.Cookie=cookies;
+  if(input)headers['Content-Type']='application/json';
+  if(method==='OPTIONS')headers['Access-Control-Request-Method']='PUT';
+  const response=await handleAccountRequest(new Request(origin+path,{method,headers,body:input?JSON.stringify(input):undefined}),env,opts);
+  return {status:response.status,data:response.status===204?null:await response.json(),headers:response.headers};
+}
+async function pagesLogin(jar){
+  const csrf=await login(jar);
+  const issued=await request('/api/account/pages-session',{jar,method:'POST',csrf,input:{origin:GITHUB_PAGES_ORIGIN}});
+  assert.equal(issued.status,200);assert.ok(issued.data.expiresAt>Date.now());assert.ok(issued.data.expiresAt<=Date.now()+3600000);
+  return issued.data.accessToken;
+}
+test('Pages connections require the existing authenticated CSRF-protected session',async()=>{
+  const csrf=await login('pages-origin');
+  assert.equal((await request('/api/account/pages-session',{jar:'pages-origin',method:'POST',input:{origin:GITHUB_PAGES_ORIGIN}})).status,403);
+  assert.equal((await request('/api/account/pages-session',{jar:'pages-origin',method:'POST',csrf,input:{origin:'https://attacker.test'}})).status,403);
+  assert.equal((await request('/api/account/pages-session',{jar:'pages-origin',method:'POST',csrf,requestOrigin:GITHUB_PAGES_ORIGIN,input:{origin:GITHUB_PAGES_ORIGIN}})).status,403);
+  const guest=await request('/api/account',{jar:'pages-guest'});
+  assert.equal((await request('/api/account/pages-session',{jar:'pages-guest',method:'POST',csrf:guest.data.csrf,input:{origin:GITHUB_PAGES_ORIGIN}})).status,401);
+});
+test('Pages API is origin-restricted and never falls back to cookie authentication',async()=>{
+  const token=await pagesLogin('pages-cors');
+  const ok=await pagesRequest('/api/pages/account',{token});
+  assert.equal(ok.status,200);assert.equal(ok.data.user.id,'google:pages-cors');
+  assert.equal(ok.headers.get('Access-Control-Allow-Origin'),GITHUB_PAGES_ORIGIN);
+  assert.equal(ok.headers.get('Access-Control-Allow-Credentials'),null);
+  assert.equal(ok.headers.get('Set-Cookie'),null);
+  const preflight=await pagesRequest('/api/pages/timetable',{method:'OPTIONS'});assert.equal(preflight.status,204);
+  const blocked=await pagesRequest('/api/pages/account',{token,requestOrigin:'https://attacker.test'});
+  assert.equal(blocked.status,403);assert.equal(blocked.headers.get('Access-Control-Allow-Origin'),null);
+  const cookies=[...jars.get('pages-cors')].map(([k,v])=>k+'='+v).join(';');
+  assert.equal((await pagesRequest('/api/pages/account',{cookies})).status,401);
+  const mainCookie=jars.get('pages-cors').get('__Host-fmb-session');
+  assert.equal((await pagesRequest('/api/pages/account',{token:mainCookie})).status,401);
+  const fakeMain=await handleAccountRequest(new Request(origin+'/api/timetable',{headers:{Cookie:'__Host-fmb-session='+token}}),env,opts);
+  assert.equal(fakeMain.status,401);
+});
+test('Pages and the main site share only the verified owner timetable and enforce revisions',async()=>{
+  const alice=await pagesLogin('pages-alice'),bob=await pagesLogin('pages-bob');
+  const write=await pagesRequest('/api/pages/timetable',{token:alice,method:'PUT',input:{revision:0,ownerId:'google:pages-bob',timetable:body}});
+  assert.equal(write.status,200);assert.equal(write.data.revision,1);
+  assert.deepEqual((await request('/api/timetable',{jar:'pages-alice'})).data.timetable,body);
+  assert.equal((await pagesRequest('/api/pages/timetable',{token:bob})).data.timetable,null);
+  assert.equal((await pagesRequest('/api/pages/timetable',{token:alice,method:'PUT',input:{revision:0,timetable:body}})).status,409);
+  const cleared=await pagesRequest('/api/pages/timetable',{token:alice,method:'PUT',input:{revision:1,timetable:{events:[],roomMappings:{}}}});
+  assert.equal(cleared.data.revision,2);
+  assert.deepEqual((await request('/api/timetable',{jar:'pages-alice'})).data.timetable.events,[]);
+});
+test('Pages rejects expired, tampered, wrong-origin and wrong-audience tokens',async()=>{
+  const sign=overrides=>new SignJWT({email:'pages@example.test',origin:GITHUB_PAGES_ORIGIN,...overrides.payload})
+    .setProtectedHeader({alg:'HS256',typ:'fmb-pages-session'}).setSubject('google:pages-token')
+    .setIssuer('find-my-block:pages').setAudience(overrides.audience||'find-my-block:github-pages')
+    .setIssuedAt().setExpirationTime(overrides.expires||'1h').sign(new TextEncoder().encode(env.SESSION_SECRET));
+  for(const overrides of [{expires:'-1h'},{audience:'find-my-block'},{payload:{origin:'https://attacker.test'}}]){
+    assert.equal((await pagesRequest('/api/pages/account',{token:await sign(overrides)})).status,401);
+  }
+  const token=await sign({});
+  assert.equal((await pagesRequest('/api/pages/account',{token:token.slice(0,-8)+'tampered'})).status,401);
+  assert.equal((await pagesRequest('/api/pages/timetable',{token,method:'PUT',input:{revision:0,timetable:{events:'invalid',roomMappings:{}}}})).status,400);
 });

@@ -1,5 +1,6 @@
 (function(){
-  const state={ready:false,user:null,csrf:'',clientId:null,revision:0,loaded:false,dirty:false,saving:false,conflict:false,status:'loading'};
+  const transport=window.CampusAccountTransport;
+  const state={ready:false,user:null,csrf:'',clientId:transport?'hosted-google':null,revision:0,loaded:false,dirty:false,saving:false,conflict:false,status:'loading'};
   let queue=Promise.resolve(true),pending=0,latest=null,googleLibrary=null,initializing=null;
   const message={
     loading:['正在读取账号…','Checking account…'],
@@ -13,12 +14,14 @@
     error:['暂时无法同步。当前内容已保留，稍后可以重试。','Could not sync. Your current timetable is kept; you can retry.'],
     conflict:['课表已在其他设备上更新。请选择读取云端课表，或保存当前这份。','Your timetable changed on another device. Load the saved timetable or save this one.'],
     googleError:['Google 登录暂时无法加载，请重试。','Google sign-in could not load. Please try again.'],
-    loginError:['登录失败，请刷新后重试。','Sign-in failed. Refresh and try again.']
+    loginError:['登录失败，请重试或允许登录弹窗。','Sign-in failed. Try again and allow the sign-in window.'],
+    expired:['账号连接已过期。重新连接后可继续同步，当前修改已保留。','Your account connection expired. Reconnect to sync; your changes are kept.']
   };
   const t=(zh,en)=>text(zh,en);
   const cacheKey=()=>state.user?'fmb-account-cache:'+state.user.id:null;
   function cache(){if(cacheKey()&&latest)saveLocal(cacheKey(),{timetable:latest,revision:state.revision,dirty:state.dirty});}
   async function api(path,options={}){
+    if(transport)return transport.request(path,{...options,accountId:state.user?.id});
     const headers={'Content-Type':'application/json',...(options.headers||{})};
     if(options.method&&options.method!=='GET')headers['X-CSRF-Token']=state.csrf;
     const response=await fetch(path,{...options,headers,credentials:'same-origin',cache:'no-store'});
@@ -37,7 +40,7 @@
     $('reloadCloud').hidden=!state.user;$('reloadCloud').disabled=state.saving;
     $('reloadCloud').textContent=t('读取云端课表','Load saved timetable');
     $('privacyLink').textContent=t('隐私与数据','Privacy and data');
-    $('googleButton').hidden=!!state.user||!state.clientId;
+    $('googleButton').hidden=(!!state.user&&state.status!=='expired')||!state.clientId;
     $('icsFile').disabled=!state.ready||state.status==='loadingCloud';
   }
   function installTimetable(data){
@@ -46,9 +49,11 @@
   }
   async function loadCloud(discard=false){
     if(!state.user)return;
+    const loadingUser=state.user.id;
     state.status='loadingCloud';render();
     try{
       const data=await api('/api/timetable');
+      if(state.user?.id!==loadingUser)return;
       const cached=stored(cacheKey(),null);
       state.revision=data.revision;state.loaded=true;state.conflict=false;
       if(!discard&&cached?.dirty&&cached.timetable){
@@ -63,10 +68,11 @@
         state.dirty=!!latest.events.length;state.status=state.dirty?'unsaved':'empty';
       }
       cache();render();
-    }catch{
+    }catch(error){
+      if(state.user?.id!==loadingUser)return;
       const cached=stored(cacheKey(),null);
       if(cached?.timetable){installTimetable(cached.timetable);state.revision=cached.revision||0;state.dirty=!!cached.dirty;}
-      state.status='error';render();
+      state.status=error.status===401?'expired':'error';render();if(state.status==='expired')loadGoogle();
     }
   }
   async function save(snapshot){
@@ -85,15 +91,26 @@
         if(state.conflict||!state.loaded)throw Object.assign(new Error('Load the saved revision first'),{status:409});
         const data=await api('/api/timetable',{method:'PUT',body:JSON.stringify({revision:state.revision,timetable:copy})});
         state.revision=data.revision;success=true;
-      }catch(error){state.conflict=error.status===409;state.status=state.conflict?'conflict':'error';}
+      }catch(error){state.conflict=error.status===409;state.status=error.status===401?'expired':state.conflict?'conflict':'error';}
       pending--;state.saving=pending>0;state.dirty=!success||pending>0;
       if(success)state.status=pending?'saving':copy.events.length?'saved':'empty';
-      cache();render();return success;
+      cache();render();if(state.status==='expired')loadGoogle();return success;
     });
     return queue;
   }
   async function loadGoogle(){
-    if(!state.clientId||state.user)return;
+    if(!state.clientId||(state.user&&state.status!=='expired'))return;
+    if(transport){
+      transport.renderLogin($('googleButton'),async response=>{
+        await queue;
+        if(state.user&&state.user.id!==response.user.id){
+          applyAccountTimetable({events:stored('fmb-calendar-v1',[]),roomMappings:stored('fmb-rooms-v1',{})});latest=null;
+        }
+        state.user=response.user;state.csrf='';state.loaded=false;state.revision=0;
+        await loadCloud();
+      },()=>{state.status=state.user?'expired':'loginError';render();});
+      return;
+    }
     try{
       if(!googleLibrary)googleLibrary=new Promise((resolve,reject)=>{
         if(window.google?.accounts?.id){resolve();return;}
@@ -105,6 +122,7 @@
         state.status='loading';render();
         try{
           const response=await api('/api/account/google',{method:'POST',body:JSON.stringify({credential:result.credential,csrf:state.csrf})});
+          if(state.user&&state.user.id!==response.user.id){applyAccountTimetable({events:stored('fmb-calendar-v1',[]),roomMappings:stored('fmb-rooms-v1',{})});latest=null;}
           state.user=response.user;state.csrf=response.csrf;state.loaded=false;state.revision=0;
           await loadCloud();
         }catch{state.status='loginError';render();}
@@ -118,14 +136,14 @@
       const data=await api('/api/account');state.user=data.user;state.csrf=data.csrf;state.clientId=data.googleClientId;
       state.ready=true;state.status=state.clientId?'guest':'setup';render();
       if(state.user)await loadCloud();else await loadGoogle();
-    }catch{state.ready=true;state.status='error';render();}
+    }catch{state.ready=true;state.status='error';render();if(transport)loadGoogle();}
   }
   $('saveToAccount').onclick=async()=>{
     if(state.saving)return;
     try{
       const latestVersion=await api('/api/timetable');state.revision=latestVersion.revision;state.loaded=true;state.conflict=false;
       await save(timetableSnapshot());
-    }catch{state.status='error';render();}
+    }catch(error){state.status=error.status===401?'expired':'error';render();if(state.status==='expired')loadGoogle();}
   };
   $('reloadCloud').onclick=()=>{if(!state.saving)loadCloud(true);};
   $('signOut').onclick=async()=>{

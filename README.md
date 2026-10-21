@@ -2,25 +2,15 @@
 
 Burnside campus navigation with local calendar import, automatic class-to-class routes and account-backed timetable storage.
 
-## GitHub version
+## GitHub Pages account connection
 
-Synced from the published **Find My Block, version 24** source commit `aa936af4b4421791f0935b0c19bea023817b8ce6` on 22 October 2026.
+The GitHub Pages frontend at `https://zxw20110119-rgb.github.io/Find-my-block/` uses the same account database as the hosted main site. **Sign in with Google** opens `/account/connect` on the main site. The window verifies Google sign-in using the existing HttpOnly cookie flow and sends a short-lived connection token to the exact trusted Pages origin. The receiver checks origin, popup identity and a random state before accepting it, then verifies the account with the API.
 
-- Full hosted app: https://find-my-block-bhs.zengxuanwen.chatgpt.site
-- GitHub Pages: https://zxw20110119-rgb.github.io/Find-my-block/
+Pages API requests use an origin-bound bearer token with `credentials: omit`; they do not rely on third-party cookies. The token expires after one hour and is kept only in tab-scoped `sessionStorage`. Reopening a tab or an expired connection can require reconnecting; users do not need to reimport their cloud timetable. Signed-out guest timetables and account-specific unsaved backups remain separate. Signing out disconnects that Pages tab, not other browser sessions on the main site.
 
-The root `index.html`, browser scripts, `assets/`, and `privacy.html` are generated for GitHub Pages. All navigation, manual starting points, building search, calendar import, automatic class-to-class routes, local road closures and simple map mode work without a server. GPS remains removed.
+The backend only allows CORS from the exact Pages origin. Cookie sessions and Pages tokens have different issuers/audiences and cannot substitute for one another. Timetable owner IDs are derived from the verified session, never a client-selected account. The original revision checks and Google validation remain active. No Google client secret is used or exported.
 
-GitHub Pages stores the timetable in the same browser between visits. It cannot run the Google account and D1 API; use **Open main site** for account features once Google sign-in has been configured. Private session secrets and user timetable records are not included in this repository.
-
-To publish the static version, choose **Settings → Pages → Deploy from a branch → main → /(root)**. To refresh these files after editing `site/index.html` or `public/`, run:
-
-```sh
-node scripts/export-pages.mjs
-node --test tests/pages.cjs
-```
-
-The original full-stack source remains in `app/`, `server/`, `db/`, `drizzle/`, `site/` and `public/`. The root `account.js` is the device-only Pages adapter; `public/account.js` is the full hosted account client. Future GitHub changes do not automatically update the ChatGPT Site, and Site changes do not automatically update GitHub.
+Generate Pages assets at a chosen output directory using `node scripts/export-pages.mjs /absolute/output/path`, or omit the path to refresh generated files at a GitHub checkout's root. Keep **Settings → Pages → main → /(root)**. GitHub and Sites source changes do not automatically sync with each other.
 
 ## Google sign-in setup
 
@@ -59,6 +49,8 @@ node tests/navigation.cjs
 node tests/interface.cjs
 node tests/account-client.cjs
 node --test tests/accounts.test.mjs
+node --test tests/pages-transport.cjs
+node --test tests/account-connect.cjs tests/pages-export.cjs
 node node_modules/typescript/bin/tsc --noEmit
 ```
 

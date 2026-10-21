@@ -27,6 +27,11 @@ body.simulating #world{transition-duration:180ms}
 @keyframes location-pulse{0%,100%{transform:scale(.72);opacity:.15}50%{transform:scale(1.08);opacity:.34}}
 @media(prefers-reduced-motion:reduce){#world{transition:none!important}.planner,.guidance,.bottom,.map-actions,.demo-badge,#route.route-draw,#halo.route-draw,#destination,#position>circle:first-child{animation:none!important}.map-actions button,.primary,.secondary,#swap,.brand button{transition:none!important}}
 #network{fill:none;stroke:#fff;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;opacity:.7;filter:drop-shadow(0 1px 1px #20302044)}
+.manual-status{margin:10px 0 0;padding:7px 10px;border-radius:14px;background:#e8f0fe;color:#174ea6;font-size:12px;line-height:1.4}
+.manual-status[hidden]{display:none}
+.manual-position{flex:0 0 auto;border:0;border-radius:16px;background:#e8f0fe;color:#174ea6;font-size:12px;font-weight:600;min-height:36px;padding:8px 10px}
+body.choosing-position #map,body.choosing-position #map:active{cursor:crosshair}
+#world{left:0;top:0}
 @media(max-width:760px){
   #app{min-height:100dvh}
   .planner{left:10px;right:10px;top:calc(10px + env(safe-area-inset-top));width:auto;padding:12px 14px;border-radius:24px;box-shadow:0 8px 28px #20302024}
@@ -63,4 +68,51 @@ body.simulating #world{transition-duration:180ms}
   .secondary{flex:0 0 auto}
   .note{display:none}
   .map-credit{right:10px;bottom:8px;border-radius:10px;padding:3px 7px}
+}
+/* Compact tools panel. It covers the map only while in use. */
+#toolsButton{margin-left:auto}
+.brand #language{margin-left:0}
+.tool-panel{position:absolute;z-index:6;top:186px;left:24px;width:min(390px,calc(100% - 48px));max-height:min(68dvh,680px);overflow:auto;background:#fff;border-radius:24px;padding:16px;box-shadow:0 12px 36px #172d3050}
+.tool-panel[hidden],.tab-content[hidden],#reportForm[hidden],.schedule-peek[hidden]{display:none!important}
+.tool-head{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:18px}
+.account-card{margin-bottom:14px;padding:12px;border:1px solid #dce7e1;border-radius:18px;background:#f4f9f6}
+.account-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px}
+.account-card .tool-copy{margin-top:7px;overflow-wrap:anywhere}
+.account-card a{display:inline-block;color:#526b60;font-size:11px;margin-top:9px}
+.account-card [hidden]{display:none!important}
+#googleButton{min-height:40px;margin:8px 0}
+button:disabled{cursor:default;opacity:.55}
+.tool-head button{border:0;background:#f1f3f4;border-radius:50%;width:34px;height:34px;font-size:23px;line-height:1}
+.tool-tabs{display:flex;gap:4px;overflow-x:auto;padding:10px 0 12px}
+.tool-tabs button{white-space:nowrap;border:0;background:#f2f5f5;border-radius:14px;padding:8px 10px;font-size:12px;color:#435050}
+.tool-tabs button.active{background:#e8f0fe;color:#174ea6;font-weight:700}
+.tab-content label{display:block;font-size:13px;font-weight:650;margin:7px 0}
+.tab-content input[type=search],.tab-content textarea,.room-select{width:100%;border:1px solid #dadce0;border-radius:14px;padding:10px;background:#fff;color:#202124}
+.result-list,.schedule-list{display:grid;gap:8px;margin-top:12px}
+.result-list button,.schedule-item,.next-class{border:1px solid #e4e9e7;border-radius:16px;background:#f8faf9;padding:10px 12px;text-align:left}
+.result-list button{width:100%;color:#202124}
+.result-list button:hover{background:#e8f0fe}
+.tool-copy,.tool-status{font-size:12px;line-height:1.45;color:#5f6368;margin:3px 0 10px}
+.tool-status{color:#0b6947;min-height:16px}
+.tool-row{display:flex;gap:8px;flex-wrap:wrap}
+.tool-action,.file-button,.schedule-item button,.next-class button{border:0;border-radius:14px;background:#e8f0fe;color:#174ea6;padding:9px 12px;font-size:12px;font-weight:650}
+.tool-action.active{background:#0b6947;color:#fff}
+.file-button{display:inline-block!important;cursor:pointer}
+.schedule-item strong,.next-class strong{display:block;font-size:14px}
+.schedule-item small,.next-class small{display:block;color:#5f6368;font-size:12px;margin:3px 0 6px}
+.schedule-item .room-select{width:auto;max-width:100%;font-size:12px;padding:7px;margin:4px 0}
+.schedule-item button,.next-class button{margin-top:5px}
+.schedule-peek{position:absolute;z-index:3;left:24px;top:191px;width:360px;max-width:calc(100% - 48px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:0;border-radius:16px;padding:9px 12px;background:#ffffffef;color:#0b6947;text-align:left;font-size:12px;box-shadow:0 3px 12px #20302024}
+body.simple-map #world img{opacity:.34;filter:grayscale(.6)}
+#simpleLabels text{display:none;fill:#074d34;paint-order:stroke;stroke:white;stroke-width:5px;stroke-linejoin:round;font-size:15px;font-weight:800;text-anchor:middle;dominant-baseline:middle}
+body.simple-map #simpleLabels text,#simpleLabels text.always-label{display:block}
+#simpleLabels circle{fill:#fff;stroke:#0b6947;stroke-width:2}
+#closedNetwork{fill:none;stroke:#e83d37;stroke-width:9;stroke-linecap:round;stroke-dasharray:13 9;filter:drop-shadow(0 0 3px white)}
+#selectionLine{fill:none;stroke:#ffb900;stroke-width:13;stroke-linecap:round;stroke-dasharray:12 8}
+body.choosing-road #map{cursor:crosshair}
+@media(max-width:760px){
+  .brand #toolsButton{width:auto;padding:0 10px}
+  .tool-panel{top:calc(125px + env(safe-area-inset-top));left:10px;width:calc(100% - 20px);max-height:calc(100dvh - 350px);padding:14px;border-radius:22px}
+  .schedule-peek{left:10px;top:calc(190px + env(safe-area-inset-top));max-width:calc(100% - 20px);width:auto;right:10px}
+  body:has(.schedule-peek:not([hidden])) .map-actions{top:calc(234px + env(safe-area-inset-top))}
 }

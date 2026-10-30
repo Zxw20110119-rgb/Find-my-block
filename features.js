@@ -54,13 +54,7 @@ if(!Array.isArray(reports))reports=[];
 const saveLocal=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));return true;}catch{return false;}};
 function timetableSnapshot(){return {events:calendarEvents,roomMappings};}
 async function persistTimetable(){
-  if(window.TimetableAccount)return window.TimetableAccount.save(timetableSnapshot());
   return saveLocal("fmb-calendar-v1",calendarEvents)&&saveLocal("fmb-rooms-v1",roomMappings);
-}
-function applyAccountTimetable(data){
-  calendarEvents=Array.isArray(data?.events)?data.events:[];
-  roomMappings=data?.roomMappings&&typeof data.roomMappings==="object"?data.roomMappings:{};
-  lastAutoClassKey="";refreshSchedule();refreshSearch();
 }
 const blockLetters=Object.fromEntries(Object.keys(places).filter(k=>k.length===1).map(k=>[k.toUpperCase(),k]));
 blockLetters.P="pukehinau";
@@ -185,17 +179,17 @@ function handleMapToolTap(point){
 }
 function selectTab(tab){
   activeTab=tab;
-  for(const id of ["search","timetable","roads","mapstyle"])$(id+"Tab").hidden=id!==tab;
+  for(const id of ["search","notices","timetable","roads","mapstyle"])$(id+"Tab").hidden=id!==tab;
   for(const button of document.querySelectorAll(".tool-tabs button"))button.classList.toggle("active",button.dataset.tab===tab);
-  $("panelTitle").textContent=({search:text("查找地点","Find a place"),timetable:text("我的课表","My timetable"),roads:text("步道状态","Walkway status"),mapstyle:text("地图样式","Map style")})[tab];
-  if(tab==="search")refreshSearch();if(tab==="timetable")refreshSchedule();if(tab==="roads")renderRoads();
+  $("panelTitle").textContent=({search:text("查找地点","Find a place"),notices:text("校园通知","School notices"),timetable:text("我的课表","My timetable"),roads:text("步道状态","Walkway status"),mapstyle:text("地图样式","Map style")})[tab];
+  if(tab==="notices")window.NoticeMap?.render();if(tab==="search")refreshSearch();if(tab==="timetable")refreshSchedule();if(tab==="roads")renderRoads();
 }
 function refreshTools(){
   $("toolsButton").textContent=text("工具","Tools");
-  for(const [id,zh,en] of [["search","搜索","Search"],["timetable","课表","Timetable"],["roads","道路","Roads"],["mapstyle","地图","Map"]])document.querySelector('.tool-tabs [data-tab="'+id+'"]').textContent=text(zh,en);
+  for(const [id,zh,en] of [["search","搜索","Search"],["notices","通知","Notices"],["timetable","课表","Timetable"],["roads","道路","Roads"],["mapstyle","地图","Map"]])document.querySelector('.tool-tabs [data-tab="'+id+'"]').textContent=text(zh,en);
   for(const [id,zh,en] of [
     ["searchLabel","查找楼或教室","Find a block or classroom"],
-    ["calendarHelp","导入 Apple Calendar 或 Google Calendar 导出的 .ics 文件。登录后课表保存到账号；未登录时仅保存在此设备。根据上一节与下一节课自动设置路线；当天第一节课只设置终点。","Import an .ics file from Apple Calendar or Google Calendar. Sign in to save it to your account; otherwise it stays on this device. Routes use your previous and next class. The first class keeps your starting point."],
+    ["calendarHelp","导入 Apple Calendar 或 Google Calendar 导出的 .ics 文件。课表保存在当前浏览器中。根据上一节与下一节课自动设置路线；当天第一节课只设置终点。","Import an .ics file from Apple Calendar or Google Calendar. Your timetable stays saved in this browser. Routes use your previous and next class. The first class keeps your starting point."],
     ["icsLabel","选择 .ics 文件","Choose .ics file"],
     ["clearCalendar","删除课表","Remove timetable"],
     ["roadHelp","点击步道以关闭路线或记录错误。保存的反馈可以分享给网站作者。","Tap a marked walkway to close it or report a route error. You can share a saved report with the site owner."],
@@ -211,7 +205,7 @@ function refreshTools(){
   $("reportText").placeholder=text("例如施工封路","e.g. Path blocked by construction");
   $("simpleToggle").textContent=document.body.classList.contains("simple-map")?text("关闭简洁模式","Turn off simple map"):text("开启简洁模式","Turn on simple map");
   selectTab(activeTab);refreshSearch();refreshSchedule();renderRoads();renderSimpleLabels();
-  window.TimetableAccount?.render();
+  window.NoticeMap?.render();
 }
 function renderSimpleLabels(){
   const root=$("simpleLabels");root.replaceChildren();
@@ -231,7 +225,7 @@ $("icsFile").onchange=async e=>{
     if(file.size>2_000_000)throw Error("Calendar file is too large (2 MB maximum).");
     const parsed=CampusCalendar.readIcs(await file.text());calendarEvents=parsed;lastAutoClassKey="";
     const saved=await persistTimetable();
-    $("calendarStatus").textContent=text("已导入 "+parsed.length+" 项日程。","Imported "+parsed.length+" calendar events.")+(saved?"":text(" 保存尚未完成，请查看账号状态。"," Saving is not complete. Check the account status."));
+    $("calendarStatus").textContent=text("已导入 "+parsed.length+" 项日程。","Imported "+parsed.length+" calendar events.")+(saved?"":text(" 浏览器保存失败，请检查存储空间。"," Browser storage is unavailable. Please check your storage settings."));
     refreshSchedule();
   }catch(error){$("calendarStatus").textContent=error.message;}
   e.target.value="";

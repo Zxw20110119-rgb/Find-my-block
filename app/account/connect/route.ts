@@ -1,15 +1,3 @@
-import connectionHtml from '../../../site/account-connect.html?raw';
-
 export function GET() {
-  return new Response(connectionHtml, {
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-store',
-      'Cross-Origin-Opener-Policy': 'unsafe-none',
-      'Referrer-Policy': 'strict-origin-when-cross-origin',
-      'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'DENY',
-      'Content-Security-Policy': "frame-ancestors 'none'",
-    },
-  });
+  return new Response('Google sign-in has been removed. Open Find My Block to use your locally saved timetable.', {status:410,headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});
 }

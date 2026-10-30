@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#fff"><title>Find My Block · Campus Navigation</title><meta name="description" content="Find Burnside blocks and classrooms using marked campus walkways and an imported timetable."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231a73e8'/%3E%3Cpath d='M16 5 26 26 16 21 6 26Z' fill='white'/%3E%3C/svg%3E"><link rel="stylesheet" href="styles.css?v=20261022b"><script defer src="calendar.js?v=20261022b"></script><script defer src="app.js?v=20261022b"></script><script defer src="features.js?v=20261022b"></script><script defer src="account.js?v=20261022b"></script></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#fff"><title>Find My Block · Campus Navigation</title><meta name="description" content="Find Burnside blocks and classrooms using marked campus walkways and an imported timetable."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231a73e8'/%3E%3Cpath d='M16 5 26 26 16 21 6 26Z' fill='white'/%3E%3C/svg%3E"><link rel="stylesheet" href="styles.css?v=20261030a"><script defer src="calendar.js?v=20261030a"></script><script defer src="app.js?v=20261030a"></script><script defer src="features.js?v=20261030a"></script><script defer src="notices.js?v=20261030a"></script></head>
 <body>
 <main id="app">
-<div id="map" aria-label="Campus navigation map"><div id="world"><img src="assets/campus-map.jpeg" width="1536" height="1086" alt="Burnside High School campus map"><svg viewBox="0 0 1536 1086" aria-label="Routes drawn along the marked walkways"><g id="network"></g><g id="closedNetwork"></g><polyline id="selectionLine"/><g id="simpleLabels"></g><polyline id="halo" pathLength="1"/><polyline id="route" pathLength="1"/><g id="destination"><circle r="15" fill="#ea4335" stroke="white" stroke-width="5"/></g><g id="position"><circle r="24" fill="#1a73e8" opacity=".16"/><path id="positionArrow" d="M0 -18 13 14 0 8 -13 14Z" fill="#1a73e8" stroke="white" stroke-width="4"/><circle id="positionDot" r="8" fill="#1a73e8" stroke="white" stroke-width="3" style="display:none"/></g></svg></div></div>
+<div id="map" aria-label="Campus navigation map"><div id="world"><img src="assets/campus-map.jpeg" width="1536" height="1086" alt="Burnside High School campus map"><svg viewBox="0 0 1536 1086" aria-label="Routes drawn along the marked walkways"><g id="network"></g><g id="closedNetwork"></g><polyline id="selectionLine"/><g id="simpleLabels"></g><polyline id="halo" pathLength="1"/><polyline id="route" pathLength="1"/><g id="destination"><circle r="15" fill="#ea4335" stroke="white" stroke-width="5"/></g><g id="position"><circle r="24" fill="#1a73e8" opacity=".16"/><path id="positionArrow" d="M0 -18 13 14 0 8 -13 14Z" fill="#1a73e8" stroke="white" stroke-width="4"/><circle id="positionDot" r="8" fill="#1a73e8" stroke="white" stroke-width="3" style="display:none"/></g></svg></div><div id="noticePins" aria-label="School notice locations"></div></div>
 <header class="planner">
 <div class="brand"><b>Find My Block</b><span>BURNSIDE</span><button id="toolsButton" type="button" aria-label="Open tools" aria-expanded="false">Tools</button><button id="language" aria-label="Switch language">中文</button></div>
 <div class="fields"><div class="selects"><label><i class="start-dot"></i><select id="from" aria-label="Starting point"></select></label><label><i class="end-dot"></i><select id="to" aria-label="Destination"></select></label></div><button id="swap" aria-label="Swap start and destination">⇅</button></div>
@@ -10,19 +10,20 @@
 <button id="schedulePeek" class="schedule-peek" type="button" hidden></button>
 <section id="toolPanel" class="tool-panel" aria-label="Navigation tools" hidden>
   <div class="tool-head"><strong id="panelTitle">Explore</strong><button id="closePanel" type="button" aria-label="Close tools">×</button></div>
-  <nav class="tool-tabs" aria-label="Tools"><button data-tab="search" class="active" type="button">Search</button><button data-tab="timetable" type="button">Timetable</button><button data-tab="roads" type="button">Roads</button><button data-tab="mapstyle" type="button">Map</button></nav>
+  <nav class="tool-tabs" aria-label="Tools"><button data-tab="search" class="active" type="button">Search</button><button data-tab="notices" type="button">Notices</button><button data-tab="timetable" type="button">Timetable</button><button data-tab="roads" type="button">Roads</button><button data-tab="mapstyle" type="button">Map</button></nav>
   <div id="searchTab" class="tab-content"><label id="searchLabel" for="searchInput">Find a block or classroom</label><input id="searchInput" type="search" placeholder="e.g. B Block or B12" autocomplete="off"><div id="searchResults" class="result-list"></div></div>
+  <div id="noticesTab" class="tab-content" hidden>
+    <div class="notice-controls"><label id="noticeDateLabel" for="noticeDate">Notice date</label><input id="noticeDate" type="date"><select id="noticeRange" aria-label="Notice period"><option value="31">Next 31 days</option><option value="1">One day</option></select><button id="noticeToday" type="button" class="tool-action">Today</button><button id="noticeRefresh" type="button" class="tool-action">Refresh</button></div>
+    <p id="noticeHelp" class="tool-copy">Pins show places mentioned in school notices. Check the full notice for the event date and time.</p>
+    <label class="notice-toggle"><input id="noticeVisible" type="checkbox" checked><span id="noticeToggleLabel">Show notice pins</span></label>
+    <p id="noticeStatus" class="tool-status" role="status"></p><div id="noticeList" class="notice-list"></div>
+    <a id="noticeSource" class="notice-source" target="_blank" rel="noopener noreferrer">Open school notices ↗</a>
+  </div>
   <div id="timetableTab" class="tab-content" hidden>
-    <section class="account-card" aria-label="Timetable account">
-      <div class="account-heading"><strong id="accountTitle">Google account</strong><button id="signOut" type="button" class="tool-action" hidden>Sign out</button></div>
-      <p id="accountIdentity" class="tool-copy"></p><div id="googleButton"></div>
-      <p id="cloudStatus" class="tool-status" role="status">Checking account…</p>
-      <div class="tool-row"><button id="saveToAccount" type="button" class="tool-action" hidden>Save this timetable</button><button id="reloadCloud" type="button" class="tool-action" hidden>Load saved timetable</button></div>
-      <a id="privacyLink" href="/privacy.html" target="_blank" rel="noopener">Privacy and data</a>
-    </section>
-    <p id="calendarHelp" class="tool-copy">Import an .ics file from Apple Calendar or Google Calendar. Sign in to save it to your account; otherwise it stays on this device. Routes use your previous and next class. The first class keeps your starting point.</p>
+    <p id="calendarHelp" class="tool-copy">Import an .ics file from Apple Calendar or Google Calendar. Your timetable stays saved in this browser. Routes use your previous and next class. The first class keeps your starting point.</p>
     <div class="tool-row"><label id="icsLabel" class="file-button" for="icsFile">Choose .ics file</label><input id="icsFile" type="file" accept=".ics,text/calendar" hidden><button id="clearCalendar" type="button" class="tool-action" hidden>Remove timetable</button></div>
     <p id="calendarStatus" class="tool-status" role="status"></p>
+    <a class="notice-source" href="/privacy.html" target="_blank" rel="noopener">Privacy and data</a>
     <div id="nextClass" class="next-class"></div><div id="scheduleList" class="schedule-list"></div>
   </div>
   <div id="roadsTab" class="tab-content" hidden>
@@ -36,6 +37,7 @@
 </section>
 <section id="guidance" class="guidance" aria-live="polite"><span id="turnIcon">↑</span><div><strong id="instruction"></strong><span id="next"></span></div></section>
 <div class="map-actions"><button id="plus" aria-label="Zoom in">+</button><button id="minus" aria-label="Zoom out">−</button><button id="overview" aria-label="Show route overview">⊞</button><button id="follow" aria-label="Follow travel direction">➤</button></div>
+<button id="noticePeek" class="notice-peek" type="button">School notices</button>
 <span class="demo-badge" id="badge">Route preview</span>
 <section class="bottom" id="bottomCard">
 <div class="trip"><div><h1 id="tripTitle"></h1><p id="tripSubtitle"></p></div><button id="setPosition" class="manual-position">Set on map</button></div>
@@ -45,5 +47,6 @@
 <p id="note" class="note"></p>
 </section>
 <div class="map-credit">Burnside High School · Campus map</div>
+<dialog id="noticeDialog" class="notice-dialog" aria-labelledby="noticeDialogTitle"><div class="notice-dialog-head"><h2 id="noticeDialogTitle">School notices</h2><button id="noticeClose" type="button" aria-label="Close notice">×</button></div><div id="noticeDetail"></div></dialog>
 </main>
 </body></html>

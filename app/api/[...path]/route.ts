@@ -1,9 +1,6 @@
-import { env } from "cloudflare:workers";
-import { handleAccountRequest } from "../../../server/account.mjs";
-
+import { handleNoticeRequest } from "../../../server/notices.mjs";
 export const dynamic = "force-dynamic";
-const handle = (request: Request) => handleAccountRequest(request, env);
-export const GET = handle;
-export const POST = handle;
-export const PUT = handle;
-export const OPTIONS = handle;
+export const GET = handleNoticeRequest;
+export const POST = handleNoticeRequest;
+export const PUT = handleNoticeRequest;
+export const OPTIONS = handleNoticeRequest;

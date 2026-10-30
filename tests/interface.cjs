@@ -14,7 +14,7 @@ class FakeElement{
   getBoundingClientRect(){return {left:0,top:0,width:390,height:844}}setPointerCapture(){}focus(){}
 }
 const el=id=>{assert.ok(ids.has(id),'Missing HTML ID: '+id);return elements[id] ||= new FakeElement();};
-const tabs=['search','timetable','roads','mapstyle'].map(tab=>{const button=new FakeElement();button.dataset={tab};return button;});
+const tabs=['search','notices','timetable','roads','mapstyle'].map(tab=>{const button=new FakeElement();button.dataset={tab};return button;});
 const document={getElementById:el,createElement:()=>new FakeElement(),createElementNS:()=>new FakeElement(),querySelectorAll:selector=>selector==='.tool-tabs button'?tabs:[],querySelector:selector=>tabs.find(button=>selector.includes('data-tab="'+button.dataset.tab+'"'))||null,body:new FakeElement(),documentElement:{lang:'en'}};
 const window={addEventListener:(event,handler)=>(events[event]??=[]).push(handler)};
 for(const id of ['toolPanel','schedulePeek','timetableTab','roadsTab','mapstyleTab','reportForm','manualStatus','progressWrap'])el(id).hidden=true;

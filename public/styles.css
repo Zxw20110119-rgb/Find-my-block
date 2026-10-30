@@ -75,12 +75,6 @@ body.choosing-position #map,body.choosing-position #map:active{cursor:crosshair}
 .tool-panel{position:absolute;z-index:6;top:186px;left:24px;width:min(390px,calc(100% - 48px));max-height:min(68dvh,680px);overflow:auto;background:#fff;border-radius:24px;padding:16px;box-shadow:0 12px 36px #172d3050}
 .tool-panel[hidden],.tab-content[hidden],#reportForm[hidden],.schedule-peek[hidden]{display:none!important}
 .tool-head{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:18px}
-.account-card{margin-bottom:14px;padding:12px;border:1px solid #dce7e1;border-radius:18px;background:#f4f9f6}
-.account-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px}
-.account-card .tool-copy{margin-top:7px;overflow-wrap:anywhere}
-.account-card a{display:inline-block;color:#526b60;font-size:11px;margin-top:9px}
-.account-card [hidden]{display:none!important}
-#googleButton{min-height:40px;margin:8px 0}
 button:disabled{cursor:default;opacity:.55}
 .tool-head button{border:0;background:#f1f3f4;border-radius:50%;width:34px;height:34px;font-size:23px;line-height:1}
 .tool-tabs{display:flex;gap:4px;overflow-x:auto;padding:10px 0 12px}
@@ -116,3 +110,18 @@ body.choosing-road #map{cursor:crosshair}
   .schedule-peek{left:10px;top:calc(190px + env(safe-area-inset-top));max-width:calc(100% - 20px);width:auto;right:10px}
   body:has(.schedule-peek:not([hidden])) .map-actions{top:calc(234px + env(safe-area-inset-top))}
 }
+/* Notice pins stay readable while the map pans, rotates and zooms. */
+#noticePins{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.notice-pin{position:absolute;pointer-events:auto;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:transparent;padding:5px;max-width:180px;color:#493000;filter:drop-shadow(0 2px 4px #0002)}
+.notice-pin-icon{display:grid;place-items:center;background:#ffbf47;color:#493000;border:3px solid white;border-radius:50% 50% 50% 8px;min-width:30px;height:30px;font-weight:800;font-size:13px}
+.notice-pin-title{background:#fff9e8;border:1px solid #edd69f;border-radius:12px;padding:4px 9px;font-size:11px;font-weight:700;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.notice-peek{position:absolute;z-index:3;right:24px;bottom:40px;border:1px solid #eed18b;border-radius:22px;padding:10px 15px;background:#fff9e8;color:#614100;font-size:13px;box-shadow:0 3px 14px #20302020}
+.notice-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+.notice-controls label{width:100%}.notice-controls input,.notice-controls select{max-width:100%;min-width:0;border:1px solid #dadce0;border-radius:14px;background:white;padding:8px;font-size:12px;color:#202124}
+.notice-toggle{display:flex!important;align-items:center;gap:7px;color:#5b4b2e;font-size:12px!important}.notice-toggle input{accent-color:#9b6800}
+.notice-list{display:grid;gap:10px}.notice-card{background:#fffdf7;border:1px solid #eee4cb;border-radius:18px;padding:14px;overflow-wrap:anywhere}.notice-card strong{display:block;font-size:15px}.notice-card h3{font-size:20px;margin:0 0 8px}.notice-card small{display:block;font-size:12px;color:#6d6b60;margin:5px 0 8px}.notice-card button{margin:3px 8px 3px 0}.notice-card .tool-copy{margin:8px 0}
+.notice-dates{display:grid;gap:3px;font-size:11px;color:#77591e;margin:8px 0}.notice-source{display:inline-block;color:#0b6947;font-size:12px;margin-top:12px}.notice-body{white-space:pre-wrap;font-size:14px;line-height:1.65;margin:14px 0}
+.notice-dialog{position:fixed;inset:auto 20px 20px auto;width:min(480px,calc(100% - 40px));max-height:80dvh;border:0;border-radius:26px;padding:20px;background:#fff;box-shadow:0 18px 60px #0003;color:#202124;margin:0;overflow:auto}.notice-dialog::backdrop{background:#10281e3d;backdrop-filter:blur(2px)}.notice-dialog-head{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:14px}.notice-dialog-head h2{font-size:16px;margin:0;color:#5f6368}.notice-dialog-head button{border:0;border-radius:50%;width:36px;height:36px;background:#f1f3f4;font-size:24px}.notice-dialog .notice-card+.notice-card{margin-top:12px}
+@media(max-width:760px){.notice-peek{top:calc(190px + env(safe-area-inset-top));left:10px;right:auto;bottom:auto;padding:8px 12px;font-size:12px}.notice-dialog{left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));width:auto;max-height:74dvh;padding:16px;border-radius:24px}.notice-pin-title{max-width:145px;font-size:10px}.notice-pin-icon{min-width:29px;height:29px}body:has(.schedule-peek:not([hidden])) .notice-peek{top:calc(234px + env(safe-area-inset-top))}.tool-panel{max-height:65dvh}}
+
+body.choosing-position .notice-pin,body.choosing-road .notice-pin{pointer-events:none;opacity:.4}

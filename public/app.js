@@ -126,6 +126,7 @@ angle=0;
 }
 $("world").style.transform="translate("+(cx+pan[0])+"px,"+(cy+pan[1])+"px) rotate("+rotation+"deg) scale("+scale+") translate("+(-px)+"px,"+(-py)+"px)";
 $("follow").classList.toggle("active",canFollow);
+window.NoticeMap?.updatePins();
 }
 function update(dt=.016){
 const state=activeState(),arrived=routeAvailable&&travel>=total,from=$("from").value,to=$("to").value,info=manualInfo();
@@ -186,6 +187,6 @@ $("map").onpointermove=e=>{if(!drag)return;if(Math.hypot(e.clientX-drag[0],e.cli
 $("map").onpointerup=e=>{const tap=drag&&!drag.moved;drag=null;if(tap){const point=mapPointAt(e.clientX,e.clientY);if(point){if(selectingPosition)setManualPosition(point);else if(typeof handleMapToolTap==="function")handleMapToolTap(point);}}};$("map").onpointercancel=()=>drag=null;
 window.addEventListener("keydown",e=>{if(e.key==="Escape"&&selectingPosition)cancelPinSelection();});
 window.addEventListener("resize",()=>camera(activeState()));
-function tick(now){const dt=last?Math.min((now-last)/1000,.12):0;if(playing&&dt){const response=1-Math.exp(-dt*6);velocity+=(30-velocity)*response;travel=Math.min(total,travel+velocity*dt);if(travel>=total){playing=false;velocity=0;}update(dt);}else if(!playing&&velocity>0.05){velocity*=Math.exp(-dt*9);}last=now;requestAnimationFrame(tick);}
+function tick(now){const dt=last?Math.min((now-last)/1000,.12):0;if(playing&&dt){const response=1-Math.exp(-dt*6);velocity+=(30-velocity)*response;travel=Math.min(total,travel+velocity*dt);if(travel>=total){playing=false;velocity=0;}update(dt);}else if(!playing&&velocity>0.05){velocity*=Math.exp(-dt*9);}last=now;window.NoticeMap?.updatePins();requestAnimationFrame(tick);}
 plan();requestAnimationFrame(tick);
 if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:"plan_campus_route",description:"Plan a campus route along the marked walkways; location is simulated.",inputSchema:{type:"object",properties:{start:{type:"string",enum:Object.keys(places)},destination:{type:"string",enum:Object.keys(places)}},required:["start","destination"],additionalProperties:false},annotations:{readOnlyHint:false},execute(input){if(!input||!places[input.start]||!places[input.destination])throw Error("Unknown location");$("from").value=input.start;$("to").value=input.destination;plan();return {start:input.start,destination:input.destination,simulation:true};}})).catch(()=>{});}catch{}}

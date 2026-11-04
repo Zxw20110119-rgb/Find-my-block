@@ -4,12 +4,11 @@
   const isPages=location.hostname==='zxw20110119-rgb.github.io';
   const api=isPages?host+'/api/notices':'/api/notices';
   const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Pacific/Auckland',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-  let selected=today(),days=31,data=null,loading=false,generation=0,pins=[],shown=true,opened=[],focusBefore=null,firstLoad=true;
+  let selected=today(),days=31,data=null,loading=false,generation=0,pins=[],shown=true,opened=[],focusBefore=null;
   const shortTitle=title=>title.split(/\s+/).slice(0,5).join(' ')+(title.split(/\s+/).length>5?'…':'');
   function dateLabel(value){return value?new Intl.DateTimeFormat(lang==='zh'?'zh-CN':'en-NZ',{timeZone:'Pacific/Auckland',day:'numeric',month:'short',year:'numeric'}).format(new Date(value+'T12:00:00+13:00')):text('未注明','Not stated');}
   const sourceFor=date=>'https://burnside.school.kiwi/notices/date/'+date;
   function dateRows(n){return [[text('开始','Starts'),n.startDate],[text('结束','Ends'),n.endDate],[text('报名截止','Sign-up deadline'),n.deadline]];}
-  function openTools(){ $('toolPanel').hidden=false;$('toolsButton').setAttribute('aria-expanded','true');selectTab('notices'); }
   function card(n,full=false){
     const article=make('article',undefined,'notice-card');article.append(make(full?'h3':'strong',n.title));
     article.append(make('small',(n.category||text('学校通知','School notice'))+' · '+(n.locations.length?n.locations.map(l=>l.label).join(', '):text('校外／地点未定位','Off campus / location not mapped'))));
@@ -68,37 +67,39 @@
       $('noticeStatus').textContent=status+(data.fetchedAt?' · '+text('读取于 ','Read ')+new Date(data.fetchedAt).toLocaleString(lang==='zh'?'zh-CN':'en-NZ',{timeZone:'Pacific/Auckland'}):'');
       if(!data.items.length)list.append(make('p',data.unavailableDates?.length?text('暂时无法读取这些日期，请打开学校原文。','These dates are temporarily unavailable. Open the school notices.'):text('学校尚未发布这段时间的通知。','The school has not posted notices for this period.'),'tool-copy'));
     }else{$('noticePeek').textContent=text('校园通知','School notices');$('noticeStatus').textContent=loading?text('正在读取学校通知…','Reading school notices…'):text('暂时无法读取，请刷新或打开学校原文。','Notices unavailable. Refresh or open the school website.');}
+    $('noticeMapView').hidden=!data?.items.some(n=>n.locations.some(l=>buildingAreas[l.place]));
+    $('noticeMapView').textContent=text('在地图上看图钉','Show pins on map');
     $('noticeRefresh').disabled=loading;renderPins();
     if($('noticeDialog').open&&opened.length)$('noticeDetail').replaceChildren(...opened.map(n=>card(n,true)));
   }
   function fits(payload){return payload&&payload.date===selected&&payload.days===days&&Array.isArray(payload.items)&&Array.isArray(payload.checkedDates);}
   async function load(){
     const id=++generation,day=selected,span=days;loading=true;data=stored('fmb-notices:'+day+':'+span,null);if(!fits(data))data=null;
-    render();if(firstLoad&&data?.items.some(n=>n.locations.length)){firstLoad=false;focusMap();}
+    render();
     // A dated initial snapshot keeps the first view usable while the live month is read.
     const seed=fetch('notices-snapshot.json',{cache:'no-cache'}).then(r=>r.json()).then(payload=>{
       if(id!==generation||data||!payload.checkedDates?.includes(day))return;
       const end=new Date(Date.parse(day+'T12:00:00Z')+(span-1)*86400000).toISOString().slice(0,10);
       const items=payload.items.map(n=>({...n,sourceDates:n.sourceDates.filter(d=>d>=day&&d<=end)})).filter(n=>n.sourceDates.length).map(n=>({...n,sourceDate:n.sourceDates[0]}));
       data={...payload,date:day,endDate:end,days:span,items,stale:true};render();
-      if(firstLoad&&items.some(n=>n.locations.length)){firstLoad=false;focusMap();}
     }).catch(()=>{});
     try{
       const response=await fetch(api+'?date='+day+'&days='+span,{credentials:'omit',signal:AbortSignal.timeout(100000)});if(!response.ok)throw Error('School notices unavailable');const result=await response.json();
       if(id!==generation)return;if(!fits(result))throw Error('Unexpected notice format');
-      data=result;saveLocal('fmb-notices:'+day+':'+span,result);if(firstLoad){firstLoad=false;focusMap();}
+      data=result;saveLocal('fmb-notices:'+day+':'+span,result);
     }catch{await seed;if(id!==generation)return;if(data)data.stale=true;}
     finally{if(id===generation){loading=false;render();}}
   }
   function focusMap(){
     if(!data)return;follow=false;pan=[0,0];zoom=1;
     const locations=data.items.flatMap(n=>n.locations).filter(l=>buildingAreas[l.place]).map(l=>anchor(l.place));
-    const saved=points;if(locations.length){points=[...saved,...locations];camera(activeState());points=saved;}
+    if(locations.length){shown=true;$('noticeVisible').checked=true;overviewExtra=locations;closeToolPanel();renderPins();camera(activeState());}
   }
   $('noticeRange').onchange=()=>{days=Number($('noticeRange').value);load();};$('noticeDate').onchange=()=>{if(/^20\d{2}-\d{2}-\d{2}$/.test($('noticeDate').value)){selected=$('noticeDate').value;load();}};
   $('noticeToday').onclick=()=>{selected=today();load();};$('noticeRefresh').onclick=load;
   $('noticeVisible').onchange=()=>{shown=$('noticeVisible').checked;renderPins();};
-  $('noticePeek').onclick=()=>{openTools();focusMap();};
+  $('noticePeek').onclick=()=>openToolPanel('notices');
+  $('noticeMapView').onclick=focusMap;
   $('noticeClose').onclick=()=>$('noticeDialog').close();$('noticeDialog').addEventListener('close',()=>focusBefore?.focus());
   $('noticeDialog').onclick=e=>{if(e.target===$('noticeDialog')){const rect=$('noticeDialog').getBoundingClientRect();if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)$('noticeDialog').close();}};
   window.NoticeMap={render,updatePins};

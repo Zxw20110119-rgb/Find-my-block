@@ -31,6 +31,21 @@ el('searchInput').value='C15';el('searchInput').oninput();
 assert.ok(el('searchResults').children.some(node=>node.textContent==='C Block'));
 el('searchResults').children.find(node=>node.textContent==='C Block').onclick();
 assert.equal(el('to').value,'c');
+el('searchRoute').onclick();el('searchFrom').onclick();
+el('searchInput').value='Library';el('searchInput').oninput();
+el('searchInput').onkeydown({key:'Enter',preventDefault(){}});
+assert.equal(el('from').value,'library');assert.equal(el('to').value,'c');
+assert.equal(el('toolPanel').hidden,true);
+el('setPosition').onclick();vm.runInContext('setManualPosition([805,640])',browser);
+assert.equal(el('from').value,'pinned');assert.equal(el('positionArrow').style.display,'none');
+el('start').onclick();assert.equal(el('positionArrow').style.display,'');
+vm.runInContext('handleMapToolTap([745,500])',browser);
+assert.equal(el('to').value,'c','Map taps do not replace an active demo');
+el('reset').onclick();assert.equal(el('positionArrow').style.display,'none','Reset restores the pinned marker');
+el('from').value='library';el('from').onchange();assert.equal(el('positionArrow').style.display,'','Changing start clears the active pin');
+el('follow').onclick();assert.equal(vm.runInContext('started',browser),false,'Following the map does not start a demo');
+
+el('searchTo').onclick();
 el('searchInput').value='R8';el('searchInput').oninput();
 assert.equal(el('searchResults').children[0].textContent,'R Block · Rakipaoa');
 el('searchResults').children[0].onclick();assert.equal(el('to').value,'rakipaoa');
@@ -58,7 +73,8 @@ const ics=`BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:nextclass\nSUMMARY:Maths\nLOCATION
   assert.match(el('calendarStatus').textContent,/Imported 1/);
   assert.equal(el('schedulePeek').hidden,false);
   assert.match(el('schedulePeek').textContent,/Maths/);
-  assert.ok(el('scheduleList').children.length>0);
+  assert.ok(el('nextClass').children.length>0);
+  assert.equal(el('scheduleList').children.length,0,'Next class is not listed twice');
   assert.equal(vm.runInContext('placeForEvent(activeCalendarEvents()[0])',browser),'d');
   assert.equal(el('to').value,'d','Import automatically selects the first destination');
   let clock=Date.parse('2026-10-19T08:30:00+13:00');
@@ -70,17 +86,20 @@ const ics=`BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:nextclass\nSUMMARY:Maths\nLOCATION
     ['third','20261019','110000','120000','C15'],
     ['tomorrow','20261020','090000','100000','D12']
   ].map(([uid,day,start,end,room])=>`BEGIN:VEVENT\nUID:${uid}\nSUMMARY:${uid}\nLOCATION:${room}\nDTSTART;TZID=Pacific/Auckland:${day}T${start}\nDTEND;TZID=Pacific/Auckland:${day}T${end}\nEND:VEVENT\n`).join('')+'END:VCALENDAR';
-  vm.runInContext('calendarEvents=CampusCalendar.readIcs(autoFixture);lastAutoClassKey="";pinnedStart=[615,668];manualPosition={p:[615,668]};options();$("from").value="pinned";refreshSchedule();',browser);
+  vm.runInContext('calendarEvents=CampusCalendar.readIcs(autoFixture);lastAutoClassKey="";pinnedStart=[615,668];options();$("from").value="pinned";refreshSchedule();',browser);
   assert.equal(el('from').value,'pinned','First class preserves a manually pinned start');
   assert.equal(el('to').value,'a');
-  assert.equal(vm.runInContext('Boolean(manualPosition)',browser),true);
+  assert.equal(vm.runInContext('hasPinnedStart()',browser),true);
   clock=Date.parse('2026-10-19T09:30:00+13:00');vm.runInContext('refreshSchedule()',browser);
-  assert.equal(el('from').value,'a');assert.equal(el('to').value,'rakipaoa');
-  assert.equal(vm.runInContext('manualPosition',browser),null,'Previous class replaces the active manual marker');
+  assert.equal(el('from').value,'pinned');assert.equal(el('to').value,'rakipaoa');
+  assert.equal(vm.runInContext('hasPinnedStart()',browser),true,'Class changes preserve a pinned start');
   el('from').value='m';el('to').value='k';el('to').onchange();
   clock=Date.parse('2026-10-19T09:45:00+13:00');vm.runInContext('refreshSchedule()',browser);
   assert.equal(el('from').value,'m');assert.equal(el('to').value,'k','An unchanged class pair does not overwrite a manual route');
+  el('start').onclick();
   clock=Date.parse('2026-10-19T10:30:00+13:00');vm.runInContext('refreshSchedule()',browser);
+  assert.equal(el('to').value,'k','A timetable refresh does not interrupt a route demo');
+  el('schedulePeek').onclick();
   assert.equal(el('from').value,'rakipaoa');assert.equal(el('to').value,'c');
   clock=Date.parse('2026-10-19T12:30:00+13:00');vm.runInContext('refreshSchedule()',browser);
   assert.equal(el('from').value,'rakipaoa','The next school day does not use the previous day as its origin');

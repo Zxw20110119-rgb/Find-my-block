@@ -125,3 +125,15 @@ body.choosing-road #map{cursor:crosshair}
 @media(max-width:760px){.notice-peek{top:calc(190px + env(safe-area-inset-top));left:10px;right:auto;bottom:auto;padding:8px 12px;font-size:12px}.notice-dialog{left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));width:auto;max-height:74dvh;padding:16px;border-radius:24px}.notice-pin-title{max-width:145px;font-size:10px}.notice-pin-icon{min-width:29px;height:29px}body:has(.schedule-peek:not([hidden])) .notice-peek{top:calc(234px + env(safe-area-inset-top))}.tool-panel{max-height:65dvh}}
 
 body.choosing-position .notice-pin,body.choosing-road .notice-pin{pointer-events:none;opacity:.4}
+
+/* Keep destination search visible without adding another row on phones. */
+.brand #searchRoute{margin-left:auto;background:#e8f0fe;color:#174ea6;font-weight:650}
+.brand #toolsButton{margin-left:0}
+.search-target{display:flex;gap:8px;margin:0 0 10px}
+.search-target button{flex:1;border:1px solid #dce2e7;background:white;color:#455158;border-radius:14px;min-height:40px;font-size:13px;padding:7px 9px}
+.search-target button[aria-pressed="true"]{background:#e8f0fe;border-color:#bfcef0;color:#174ea6;font-weight:700}
+@media(max-width:760px){
+  .brand #searchRoute,.brand #toolsButton{width:auto;min-width:42px;padding-inline:9px}
+  .tool-panel{max-height:min(65dvh,calc(100dvh - 155px - env(safe-area-inset-top)))}
+  .manual-position{max-width:48%;flex-shrink:0}
+}

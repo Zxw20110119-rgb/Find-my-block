@@ -70,20 +70,24 @@ return {path,points,distance:nearest.distance};
 }
 const $=id=>document.getElementById(id);
 let lang="en",path=[],points=[],total=0,travel=0,playing=false,started=false,follow=true,zoom=1,pan=[0,0],angle=0,last=0,velocity=0,lastInstruction="",lastIcon="",routeAvailable=true;
-let manualPosition=null,pinnedStart=null,selectingPosition=false,pinWalkwayDistance=0;
+let pinnedStart=null,selectingPosition=false,pinWalkwayDistance=0,overviewExtra=[];
+const hasPlace=key=>Object.hasOwn(places,key);
+const hasPinnedStart=()=>!!pinnedStart&&$("from").value==="pinned";
+const choosingRoad=()=>typeof roadMode!=="undefined"&&!!roadMode;
 const text=(zh,en)=>lang==="zh"?zh:en;
 const name=k=>k==="pinned"?text("标记位置","Pinned position"):lang==="zh"?(places[k].zh||places[k].name):places[k].name;
 function options(){for(const id of ["from","to"]){const old=$(id).value,keys=Object.keys(places);if(id==="from"&&pinnedStart)keys.unshift("pinned");$(id).replaceChildren(...keys.map(k=>new Option(name(k),k)));if(keys.includes(old))$(id).value=old;}}
 function plan(){
-playing=false;started=false;travel=0;velocity=0;follow=false;pan=[0,0];zoom=1;
-if($("from").value==="pinned"&&pinnedStart){const pinnedRoute=routeFromPin(pinnedStart,$("to").value);path=pinnedRoute?.path||[];points=pinnedRoute?.points||[pinnedStart];pinWalkwayDistance=pinnedRoute?.distance||0;routeAvailable=!!pinnedRoute;}
+selectingPosition=false;if(choosingRoad())cancelRoadMode();
+playing=false;started=false;travel=0;velocity=0;follow=false;pan=[0,0];zoom=1;overviewExtra=[];
+if(hasPinnedStart()){const pinnedRoute=routeFromPin(pinnedStart,$("to").value);path=pinnedRoute?.path||[];points=pinnedRoute?.points||[pinnedStart];pinWalkwayDistance=pinnedRoute?.distance||0;routeAvailable=!!pinnedRoute;}
 else{path=shortest($("from").value,$("to").value)||[];points=path.length?path.map(k=>nodes[k]):[nodes[places[$("from").value].access[0]]];pinWalkwayDistance=0;routeAvailable=path.length>0;}
 total=points.slice(1).reduce((s,p,i)=>s+len(points[i],p),0);
 const poly=points.map(p=>p.join(",")).join(" ");$("route").setAttribute("points",poly);$("halo").setAttribute("points",poly);
 for(const line of [$("route"),$("halo")]){line.classList.remove("route-draw");void line.getBoundingClientRect();line.classList.add("route-draw");}
 const end=points.at(-1);$("destination").setAttribute("transform","translate("+end.join(" ")+")");
 $("destination").style.display=routeAvailable?"":"none";
-const url=new URL(location.href);url.searchParams.set("start",$("from").value);url.searchParams.set("end",$("to").value);history.replaceState(null,"",url);
+const url=new URL(location.href);if(hasPinnedStart())url.searchParams.delete("start");else url.searchParams.set("start",$("from").value);url.searchParams.set("end",$("to").value);history.replaceState(null,"",url);
 const card=$("bottomCard");card.classList.remove("card-change");void card.offsetWidth;card.classList.add("card-change");
 update();
 }
@@ -92,10 +96,10 @@ let remaining=distance;
 for(let i=0;i<points.length-1;i++){const a=points[i],b=points[i+1],d=len(a,b);if(d<.001)continue;if(remaining<=d||i===points.length-2){const t=Math.min(1,remaining/d);return {p:[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t],heading:Math.atan2(b[0]-a[0],-(b[1]-a[1]))*180/Math.PI,index:i};}remaining-=d;}
 return {p:points[0]||[0,0],heading:0,index:0};
 }
-function beginPinSelection(){selectingPosition=true;playing=false;velocity=0;follow=false;pan=[0,0];zoom=1;update(.12);}
+function beginPinSelection(){if(choosingRoad())cancelRoadMode();if(typeof closeToolPanel==="function")closeToolPanel();selectingPosition=true;playing=false;velocity=0;follow=false;pan=[0,0];zoom=1;update(.12);}
 function cancelPinSelection(){selectingPosition=false;update(.12);}
 function setManualPosition(point){
-  selectingPosition=false;manualPosition={p:[...point]};pinnedStart=[...point];
+  selectingPosition=false;pinnedStart=[...point];
   options();$("from").value="pinned";plan();
 }
 function mapPointAt(clientX,clientY){
@@ -104,89 +108,109 @@ function mapPointAt(clientX,clientY){
   const point=new DOMPoint(clientX-bounds.left,clientY-bounds.top).matrixTransform(inverse);
   return Number.isFinite(point.x)&&Number.isFinite(point.y)&&point.x>=0&&point.x<=1536&&point.y>=0&&point.y<=1086?[point.x,point.y]:null;
 }
-function activeState(){return manualPosition?{p:manualPosition.p,heading:0,index:0}:at(travel);}
+function activeState(){return hasPinnedStart()&&!started?{p:pinnedStart,heading:0,index:0}:at(travel);}
 function manualInfo(){
   if(selectingPosition)return text("点击地图上你实际所在的位置","Tap your actual position on the map");
-  if(manualPosition)return text("手动标记的起点","Pinned starting point");
+  if(hasPinnedStart())return text("手动标记的起点","Pinned starting point");
   return "";
 }
 function camera(state,dt=.016){
 const w=$("map").clientWidth,h=$("map").clientHeight,mobile=w<=760;
 let scale,cx,cy,px,py,rotation;
-const canFollow=!selectingPosition&&follow&&(Boolean(manualPosition)||started);
+const canFollow=!selectingPosition&&!choosingRoad()&&follow;
 if(canFollow){
 scale=(mobile?1.45:1.8)*zoom;cx=mobile?w*.46:384+(w-384)*.5;cy=mobile?h*.57:h*.62;[px,py]=state.p;
 const desired=-state.heading;const turn=((desired-angle+540)%360)-180;angle+=turn*(1-Math.exp(-Math.min(dt,.12)*8));rotation=angle;
 }else{
-const viewPoints=selectingPosition?[[340,80],[1150,1020]]:points;
+const viewPoints=selectingPosition?[[340,80],[1150,1020]]:[...points,...overviewExtra];
 const xs=viewPoints.map(p=>p[0]),ys=viewPoints.map(p=>p[1]);const bw=Math.max(220,Math.max(...xs)-Math.min(...xs)+170),bh=Math.max(220,Math.max(...ys)-Math.min(...ys)+170);
 scale=Math.min((mobile?w-40:w-470)/bw,(mobile?Math.max(180,h-480):h-220)/bh,1.6)*zoom;
 cx=mobile?w*.5:410+(w-410)*.5;cy=mobile?280+Math.max(180,h-480)*.5:h*.53;px=(Math.min(...xs)+Math.max(...xs))/2;py=(Math.min(...ys)+Math.max(...ys))/2;rotation=0;
 angle=0;
 }
 $("world").style.transform="translate("+(cx+pan[0])+"px,"+(cy+pan[1])+"px) rotate("+rotation+"deg) scale("+scale+") translate("+(-px)+"px,"+(-py)+"px)";
-$("follow").classList.toggle("active",canFollow);
+$("follow").classList.toggle("active",canFollow);$("follow").setAttribute("aria-pressed",String(canFollow));
 window.NoticeMap?.updatePins();
 }
 function update(dt=.016){
 const state=activeState(),arrived=routeAvailable&&travel>=total,from=$("from").value,to=$("to").value,info=manualInfo();
-const headingKnown=!manualPosition;
+const pinnedPreview=hasPinnedStart()&&!started;
+const headingKnown=!pinnedPreview;
 $("position").setAttribute("transform","translate("+state.p.join(" ")+") rotate("+state.heading+")");
 $("positionArrow").style.display=headingKnown?"":"none";$("positionDot").style.display=headingKnown?"none":"";
-$("positionDot").setAttribute("fill",manualPosition?"#0b6947":"#1a73e8");
-$("manualStatus").hidden=!manualPosition&&!selectingPosition;$("manualStatus").textContent=info;
-$("setPosition").textContent=selectingPosition?text("取消","Cancel"):manualPosition?text("移动标记","Move pin"):text("地图选点","Set on map");
+$("positionDot").setAttribute("fill",pinnedPreview?"#0b6947":"#1a73e8");
+$("manualStatus").hidden=!pinnedPreview&&!selectingPosition;$("manualStatus").textContent=info;
+$("setPosition").textContent=selectingPosition?text("取消","Cancel"):hasPinnedStart()?text("移动起点","Move start pin"):text("地图选起点","Set start on map");
 document.body.classList.toggle("choosing-position",selectingPosition);
 $("tripTitle").textContent=name(to);$("tripSubtitle").textContent=text("从 ","From ")+name(from);
 $("language").textContent=lang==="zh"?"EN":"中文";
-$("start").textContent=arrived?text("已到达","Arrived"):playing?text("暂停演示","Pause demo"):started?text("继续演示","Resume demo"):text("开始模拟导航","Start demo");
-$("start").disabled=!routeAvailable||arrived||selectingPosition;
+$("start").textContent=total===0&&routeAvailable?text("已在目的地","Already there"):arrived?text("重播演示","Replay demo"):playing?text("暂停演示","Pause demo"):started?text("继续演示","Resume demo"):text("开始模拟导航","Start demo");
+$("start").disabled=!routeAvailable||total===0||selectingPosition||choosingRoad();
 $("swap").disabled=from==="pinned";
-$("reset").textContent=text("重新规划","Reset");
-$("note").textContent=!routeAvailable?text("没有可通行的路线，请重新开放路段。","No open route. Reopen a closed walkway."):manualPosition?text("路线从标记附近的已绘制步道开始。移动标记可调整起点。","Route starts on the nearest mapped walkway. Use Move pin to change the start."):text("选择起点和目的地，预览步行路线。","Choose a start and destination to preview a walking route.");
-$("badge").textContent=manualPosition||selectingPosition?info:started?text("路线演示","Route demo"):text("路线预览","Route preview");
-$("progressWrap").hidden=!started||selectingPosition||Boolean(manualPosition);document.body.classList.toggle("simulating",started&&!selectingPosition);
+$("reset").textContent=selectingPosition||choosingRoad()?text("取消选点","Cancel selection"):text("重置路线","Reset route");
+$("note").textContent=!routeAvailable?text("没有可通行的路线，请重新开放路段。","No open route. Reopen a closed walkway."):pinnedPreview?text("路线从标记附近的已绘制步道开始。移动标记可调整起点。","Route starts on the nearest mapped walkway. Use Move pin to change the start."):text("选择起点和目的地，预览步行路线。","Choose a start and destination to preview a walking route.");
+$("badge").textContent=pinnedPreview||selectingPosition?info:started?text("路线演示","Route demo"):text("路线预览","Route preview");
+$("progressWrap").hidden=!started||selectingPosition||choosingRoad();document.body.classList.toggle("simulating",started&&!selectingPosition);
 $("progressLabel").textContent=text("拖动预览行程","Scrub through the route")+" · "+(total?Math.round(travel/total*100):100)+"%";
 $("progress").value=total?Math.round(travel/total*1000):1000;
 let instruction=text("沿蓝色路线前行","Follow the blue route"),icon="↑";
 if(typeof roadMode!=="undefined"&&roadMode){instruction=roadMode==="close"?text("点击要关闭或重开的步道","Tap a path to close or reopen"):text("点击有问题的步道","Tap the path with an issue");icon="⌖";}
-else if(!routeAvailable){instruction=text("没有可通行的路线","No open route");icon="!";}
 else if(selectingPosition){instruction=text("点击你的实际位置","Tap your actual position");icon="⌖";}
-else if(manualPosition&&from==="pinned"&&pinWalkwayDistance>10){instruction=text("前往蓝色路线起点","Go to the start of the blue route");}
+else if(!routeAvailable){instruction=text("没有可通行的路线","No open route");icon="!";}
+else if(pinnedPreview&&pinWalkwayDistance>10){instruction=text("前往蓝色路线起点","Go to the start of the blue route");}
 else if(arrived){instruction=from===to?text("你已在目的地","Already at destination"):text("已到达建筑旁步道","At the path beside your block");icon="✓";}
 else if(started&&state.index<points.length-2){
 const a=points[state.index],b=points[state.index+1],c=points[state.index+2];
 const h1=Math.atan2(b[1]-a[1],b[0]-a[0]),h2=Math.atan2(c[1]-b[1],c[0]-b[0]);const turn=((h2-h1)*180/Math.PI+540)%360-180;
-if(Math.abs(turn)>30){instruction=turn>0?text("前方右转","Turn right ahead"):text("前方左转","Turn left ahead");icon=turn>0?"↱":"↰";}
+if(Math.abs(turn)>30){instruction=turn>0?text("前方右转","Turn right ahead"):text("前方左转","Turn left ahead");icon=turn>0?"→":"←";}
 else instruction=text("继续直行","Continue straight");
 }
 $("instruction").textContent=instruction;$("turnIcon").textContent=icon;
 if(instruction!==lastInstruction||icon!==lastIcon){const guidance=$("guidance");guidance.classList.remove("guidance-change");void guidance.offsetWidth;guidance.classList.add("guidance-change");lastInstruction=instruction;lastIcon=icon;}
-$("next").textContent=!routeAvailable?text("重新开放路段或更改目的地","Reopen a walkway or choose another destination"):selectingPosition?text("可拖动或缩放地图","Drag or zoom the map to find your spot"):arrived?name(to):text("前往 ","Towards ")+name(to);
+$("next").textContent=selectingPosition?text("可拖动或缩放地图","Drag or zoom the map to find your spot"):choosingRoad()?text("可点击下方取消选点","Use Cancel selection to leave this mode"):!routeAvailable?text("重新开放路段或更改目的地","Reopen a walkway or choose another destination"):arrived?name(to):text("前往 ","Towards ")+name(to);
 camera(state,dt);
 }
 $("network").innerHTML=chains.flatMap(c=>c.slice(1).map((b,i)=>'<polyline points="'+[c[i],b].map(k=>nodes[k].join(",")).join(" ")+'"/>')).join("");
 options();
 const params=new URLSearchParams(location.search);
-$("from").value=places[params.get("start")]?params.get("start"):"library";
-$("to").value=places[params.get("end")]?params.get("end"):"k";
+$("from").value=hasPlace(params.get("start"))?params.get("start"):"library";
+$("to").value=hasPlace(params.get("end"))?params.get("end"):"k";
 $("from").onchange=plan;$("to").onchange=plan;
-$("swap").onclick=()=>{const a=$("from").value;$("from").value=$("to").value;$("to").value=a;plan();};
+$("swap").onclick=()=>{if(hasPinnedStart())return;const a=$("from").value;$("from").value=$("to").value;$("to").value=a;plan();};
 $("language").onclick=()=>{lang=lang==="zh"?"en":"zh";document.documentElement.lang=lang==="zh"?"zh-CN":"en";options();update(.16);if(typeof refreshTools==="function")refreshTools();};
-$("start").onclick=()=>{if(!routeAvailable||travel>=total||selectingPosition)return;manualPosition=null;started=true;playing=!playing;follow=true;pan=[0,0];last=0;update(.16);};
-$("reset").onclick=plan;
-$("progress").oninput=()=>{playing=false;travel=Number($("progress").value)/1000*total;update(.12);};
-$("overview").onclick=()=>{follow=false;pan=[0,0];zoom=1;update(.18);};
-$("follow").onclick=()=>{if(!manualPosition&&!selectingPosition)started=true;follow=true;pan=[0,0];update(.18);};
-$("setPosition").onclick=()=>{if(typeof roadMode!=="undefined"&&roadMode){roadMode=null;document.body.classList.remove("choosing-road");renderRoads();}selectingPosition?cancelPinSelection():beginPinSelection();};
+$("start").onclick=()=>{if(!routeAvailable||total===0||selectingPosition||choosingRoad())return;
+if(!started||travel>=total){travel=0;velocity=0;started=true;playing=true;follow=true;pan=[0,0];overviewExtra=[];}
+else{playing=!playing;if(!playing)velocity=0;}
+last=0;update(.16);};
+$("reset").onclick=()=>{if(selectingPosition)cancelPinSelection();else if(choosingRoad()){cancelRoadMode();update(.12);}else plan();};
+$("progress").oninput=()=>{playing=false;velocity=0;travel=Number($("progress").value)/1000*total;update(.12);};
+$("overview").onclick=()=>{follow=false;pan=[0,0];zoom=1;overviewExtra=[];update(.18);};
+$("follow").onclick=()=>{if(selectingPosition||choosingRoad())return;follow=!follow;pan=[0,0];zoom=1;overviewExtra=[];update(.18);};
+$("setPosition").onclick=()=>selectingPosition?cancelPinSelection():beginPinSelection();
 $("plus").onclick=()=>{zoom=Math.min(3,zoom*1.25);update(.18);};
 $("minus").onclick=()=>{zoom=Math.max(.45,zoom/1.25);update(.18);};
 let drag=null;
-$("map").onpointerdown=e=>{drag=[e.clientX,e.clientY,...pan];drag.moved=false;$("map").setPointerCapture(e.pointerId);};
-$("map").onpointermove=e=>{if(!drag)return;if(Math.hypot(e.clientX-drag[0],e.clientY-drag[1])>6)drag.moved=true;pan=[drag[2]+e.clientX-drag[0],drag[3]+e.clientY-drag[1]];camera(activeState(),.05);};
-$("map").onpointerup=e=>{const tap=drag&&!drag.moved;drag=null;if(tap){const point=mapPointAt(e.clientX,e.clientY);if(point){if(selectingPosition)setManualPosition(point);else if(typeof handleMapToolTap==="function")handleMapToolTap(point);}}};$("map").onpointercancel=()=>drag=null;
+$("map").onpointerdown=e=>{
+  if(drag||e.isPrimary===false||e.button!==0)return;
+  drag={id:e.pointerId,x:e.clientX,y:e.clientY,pan:[...pan],moved:false};
+  $("map").setPointerCapture(e.pointerId);
+};
+$("map").onpointermove=e=>{
+  if(drag?.id!==e.pointerId)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(!drag.moved&&Math.hypot(dx,dy)<=6)return;
+  drag.moved=true;pan=[drag.pan[0]+dx,drag.pan[1]+dy];camera(activeState(),.05);
+};
+$("map").onpointerup=e=>{
+  if(drag?.id!==e.pointerId)return;
+  const tap=!drag.moved&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<=6;drag=null;
+  if(!tap)return;
+  const point=mapPointAt(e.clientX,e.clientY);
+  if(point){if(selectingPosition)setManualPosition(point);else if(typeof handleMapToolTap==="function")handleMapToolTap(point);}
+};
+$("map").onpointercancel=$("map").onlostpointercapture=e=>{if(drag?.id===e.pointerId)drag=null;};
 window.addEventListener("keydown",e=>{if(e.key==="Escape"&&selectingPosition)cancelPinSelection();});
 window.addEventListener("resize",()=>camera(activeState()));
 function tick(now){const dt=last?Math.min((now-last)/1000,.12):0;if(playing&&dt){const response=1-Math.exp(-dt*6);velocity+=(30-velocity)*response;travel=Math.min(total,travel+velocity*dt);if(travel>=total){playing=false;velocity=0;}update(dt);}else if(!playing&&velocity>0.05){velocity*=Math.exp(-dt*9);}last=now;window.NoticeMap?.updatePins();requestAnimationFrame(tick);}
 plan();requestAnimationFrame(tick);
-if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:"plan_campus_route",description:"Plan a campus route along the marked walkways; location is simulated.",inputSchema:{type:"object",properties:{start:{type:"string",enum:Object.keys(places)},destination:{type:"string",enum:Object.keys(places)}},required:["start","destination"],additionalProperties:false},annotations:{readOnlyHint:false},execute(input){if(!input||!places[input.start]||!places[input.destination])throw Error("Unknown location");$("from").value=input.start;$("to").value=input.destination;plan();return {start:input.start,destination:input.destination,simulation:true};}})).catch(()=>{});}catch{}}
+if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:"plan_campus_route",description:"Plan a campus route along the marked walkways; location is simulated.",inputSchema:{type:"object",properties:{start:{type:"string",enum:Object.keys(places)},destination:{type:"string",enum:Object.keys(places)}},required:["start","destination"],additionalProperties:false},annotations:{readOnlyHint:false},execute(input){if(!input||!hasPlace(input.start)||!hasPlace(input.destination))throw Error("Unknown location");$("from").value=input.start;$("to").value=input.destination;plan();return {start:input.start,destination:input.destination,simulation:true};}})).catch(()=>{});}catch{}}

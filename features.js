@@ -77,27 +77,57 @@ function classRouteContext(event,events){
 function routeToClass(event,events){
   const context=classRouteContext(event,events);
   if(!context.to)return false;
-  if(context.from){$("from").value=context.from;manualPosition=null;selectingPosition=false;}
+  if(context.from&&!hasPinnedStart())$("from").value=context.from;
   $("to").value=context.to;plan();return true;
 }
 function syncClassRoute(event,events){
   if(!event){lastAutoClassKey="";return;}
   const context=classRouteContext(event,events);
   const key=JSON.stringify([event.id,context.previous?.id,context.from,context.to]);
-  if(!context.to||key===lastAutoClassKey||selectingPosition||roadMode)return;
+  if(!context.to||key===lastAutoClassKey||selectingPosition||roadMode||started||$("noticeDialog").open)return;
   if(routeToClass(event,events))lastAutoClassKey=key;
 }
-function setDestination(key){if(!places[key])return;$("to").value=key;plan();$("toolPanel").hidden=true;$("toolsButton").setAttribute("aria-expanded","false");}
+function updatePanelControls(){
+  const open=!$("toolPanel").hidden;
+  $("toolsButton").setAttribute("aria-expanded",String(open));
+  $("searchRoute").setAttribute("aria-expanded",String(open&&activeTab==="search"));
+}
+function closeToolPanel(){$("toolPanel").hidden=true;updatePanelControls();}
+function openToolPanel(tab){
+  const wasChoosing=selectingPosition||!!roadMode;
+  selectingPosition=false;if(roadMode)cancelRoadMode();
+  if(wasChoosing)update(.12);
+  $("toolPanel").hidden=false;selectTab(tab);
+}
+function setDestination(key){if(!hasPlace(key))return;$("to").value=key;plan();closeToolPanel();}
+let searchTarget="to",topSearchMatch=null;
+function setSearchTarget(target){
+  searchTarget=target;
+  $("searchFrom").setAttribute("aria-pressed",String(target==="from"));
+  $("searchTo").setAttribute("aria-pressed",String(target==="to"));
+  refreshSearch();
+}
+function chooseSearchMatch(key){
+  if(!hasPlace(key))return;
+  $(searchTarget).value=key;plan();closeToolPanel();$("searchRoute").focus();
+}
 function refreshSearch(){
   const query=$("searchInput").value.trim().toLowerCase(),container=$("searchResults");container.replaceChildren();
-  if(!query){container.append(make("p",text("输入楼名或教室号。也可以直接点地图上的建筑。","Type a block or room number, or tap a building on the map."),"tool-copy"));return;}
+  $("searchLabel").textContent=searchTarget==="from"?text("搜索起点","Search for a starting point"):text("搜索终点","Search for a destination");
   const room=CampusCalendar.roomCode({location:query,title:""});
   const mapped=roomMappings[room]||blockLetters[room[0]];
   const aliases={pukehinau:["p","p block"],rakipaoa:["r","r block","r楼","r 楼"],library:["lib"],canteen:["food","cafeteria"]};
-  let matches=Object.keys(places).filter(key=>[key,places[key].name,places[key].zh||"",...(places[key].aliases||[]),...(aliases[key]||[])].some(word=>word.toLowerCase().includes(query)));
-  if(room&&mapped&&places[mapped])matches=[mapped,...matches.filter(x=>x!==mapped)];
-  for(const key of matches.slice(0,12)){const button=make("button",name(key));button.type="button";button.onclick=()=>setDestination(key);container.append(button);}
-  if(!matches.length)container.append(make("p",text("没有找到。可在课表中设置教室对应的 Block。","No match. You can map rooms to blocks in Timetable."),"tool-copy"));
+  const matches=query?Object.keys(places).map(key=>{
+    const labels=[key,places[key].name,places[key].zh||"",...(places[key].aliases||[]),...(aliases[key]||[])].map(word=>word.toLowerCase());
+    return [key,key===mapped&&room?4:labels.some(word=>word===query)?3:labels.some(word=>word.startsWith(query))?2:labels.some(word=>word.includes(query))?1:0];
+  }).filter(([,score])=>score).sort((a,b)=>b[1]-a[1]).map(([key])=>key):["library","reception","canteen","international","hunter","aurora"];
+  topSearchMatch=query?matches[0]:null;
+  if(!query)container.append(make("p",text("常用地点","Common places"),"tool-copy"));
+  for(const key of matches.slice(0,12)){
+    const button=make("button",name(key));button.type="button";
+    button.onclick=()=>chooseSearchMatch(key);container.append(button);
+  }
+  if(!matches.length)container.append(make("p",text("没有找到。试试楼名或教室号，例如 R8。","No match. Try a block name or room number, such as R8."),"tool-copy"));
 }
 function buildRoomSelect(event){
   const select=make("select");select.className="room-select";select.setAttribute("aria-label","Block for "+(event.location||event.title));
@@ -119,7 +149,7 @@ function renderEvent(event,featured=false){
   const code=CampusCalendar.roomCode(event),block=placeForEvent(event);
   if(code||event.location)container.append(make("small",code?text("教室 ","Room ")+code+(block?" · "+name(block):""):block?name(block):text("请指定教室所在楼","Assign a block for this room")));
   container.append(buildRoomSelect(event));
-  const button=make("button",text("查看路线","Show route"));button.type="button";button.disabled=!block;button.onclick=()=>{routeToClass(event,activeCalendarEvents());$("toolPanel").hidden=true;$("toolsButton").setAttribute("aria-expanded","false");};container.append(button);
+  const button=make("button",text("查看路线","Show route"));button.type="button";button.disabled=!block;button.onclick=()=>{if(routeToClass(event,activeCalendarEvents()))closeToolPanel();};container.append(button);
   return container;
 }
 function refreshSchedule(){
@@ -132,12 +162,12 @@ function refreshSchedule(){
     next.append(make("small",text("下一节课","Next class")));
     next.append(renderEvent(first,true));
     const context=classRouteContext(first,events);
-    next.append(make("small",context.previous?(context.from?name(context.from):text("上一节课的 Block 未设置","Previous class block not set"))+" → "+(context.to?name(context.to):text("下一节课的 Block 未设置","Next class block not set")):text("当天第一节课：保留起点，仅设置终点。","First class of the day: keep your start and set the destination.")));
+    next.append(make("small",context.previous?(hasPinnedStart()?name("pinned"):context.from?name(context.from):name($("from").value))+" → "+(context.to?name(context.to):text("下一节课的 Block 未设置","Next class block not set")):text("当天第一节课：保留起点，仅设置终点。","First class of the day: keep your start and set the destination.")));
     const minutes=Math.max(0,Math.ceil((first.start-now)/60000));
     peek.hidden=false;
-    peek.textContent=(minutes?text(minutes+" 分钟后 · ","In "+minutes+" min · "):text("现在 · ","Now · "))+first.title+" · "+(first.location|| (placeForEvent(first)?name(placeForEvent(first)):text("教室待设置","room not set")));
+    peek.textContent=text("下一节课 · ","Next class · ")+(minutes?text(minutes+" 分钟后 · ","In "+minutes+" min · "):text("现在 · ","Now · "))+first.title+" · "+(first.location|| (placeForEvent(first)?name(placeForEvent(first)):text("教室待设置","room not set")));
   }else{peek.hidden=true;next.append(make("p",text("未来两周没有课程。","No classes in the next two weeks."),"tool-copy"));}
-  for(const event of upcoming.slice(0,20))list.append(renderEvent(event));
+  for(const event of upcoming.filter(e=>e.id!==first?.id).slice(0,20))list.append(renderEvent(event));
 }
 function renderRoads(){
   $("closedNetwork").replaceChildren();$("closedList").replaceChildren();$("reportList").replaceChildren();
@@ -165,20 +195,25 @@ function showRoadSelection(key){
 function roadTap(point){
   const scale=Number($("world").style.transform.match(/scale\(([\d.]+)\)/)?.[1])||1;
   const key=nearestEdge(point,Math.max(24,18/scale));
-  $("toolPanel").hidden=false;$("toolsButton").setAttribute("aria-expanded","true");selectTab("roads");
-  if(!key){$("roadStatus").textContent=text("请点击绘制的步道。","Tap a marked walkway.");return;}
+  if(!key)return;
+  const mode=roadMode;cancelRoadMode();openToolPanel("roads");
   pickedRoad=key;showRoadSelection(key);
-  if(roadMode==="close"){toggleRoad(key);$("reportForm").hidden=true;}
+  if(mode==="close"){toggleRoad(key);$("reportForm").hidden=true;}
   else{$("roadStatus").textContent=text("描述这段路的问题。","Describe the problem on this path.");$("reportForm").hidden=false;$("reportText").focus();}
-  roadMode=null;document.body.classList.remove("choosing-road");renderRoads();update(.12);
+  renderRoads();update(.12);
+}
+function cancelRoadMode(){
+  roadMode=null;document.body.classList.remove("choosing-road");
+  $("roadStatus").textContent="";renderRoads();
 }
 function handleMapToolTap(point){
   if(roadMode){roadTap(point);return;}
+  if(started||!$("toolPanel").hidden)return;
   const building=buildingAt(point);
   if(building)setDestination(building);
 }
 function selectTab(tab){
-  activeTab=tab;
+  activeTab=tab;updatePanelControls();
   for(const id of ["search","notices","timetable","roads","mapstyle"])$(id+"Tab").hidden=id!==tab;
   for(const button of document.querySelectorAll(".tool-tabs button"))button.classList.toggle("active",button.dataset.tab===tab);
   $("panelTitle").textContent=({search:text("查找地点","Find a place"),notices:text("校园通知","School notices"),timetable:text("我的课表","My timetable"),roads:text("步道状态","Walkway status"),mapstyle:text("地图样式","Map style")})[tab];
@@ -186,9 +221,12 @@ function selectTab(tab){
 }
 function refreshTools(){
   $("toolsButton").textContent=text("工具","Tools");
+  $("searchRoute").textContent=text("搜索","Search");
+  $("searchFrom").textContent=text("起点","Starting point");
+  $("searchTo").textContent=text("终点","Destination");
   for(const [id,zh,en] of [["search","搜索","Search"],["notices","通知","Notices"],["timetable","课表","Timetable"],["roads","道路","Roads"],["mapstyle","地图","Map"]])document.querySelector('.tool-tabs [data-tab="'+id+'"]').textContent=text(zh,en);
   for(const [id,zh,en] of [
-    ["searchLabel","查找楼或教室","Find a block or classroom"],
+
     ["calendarHelp","导入 Apple Calendar 或 Google Calendar 导出的 .ics 文件。课表保存在当前浏览器中。根据上一节与下一节课自动设置路线；当天第一节课只设置终点。","Import an .ics file from Apple Calendar or Google Calendar. Your timetable stays saved in this browser. Routes use your previous and next class. The first class keeps your starting point."],
     ["icsLabel","选择 .ics 文件","Choose .ics file"],
     ["clearCalendar","删除课表","Remove timetable"],
@@ -199,7 +237,7 @@ function refreshTools(){
     ["saveReport","保存反馈到此设备","Save report on this device"],
     ["shareReport","分享反馈","Share report"],
     ["mapHelp","淡化底图，突出建筑名称和路线。","Show building names clearly over a faded campus map."],
-    ["mapTapHelp","点击地图上的建筑可选终点；“地图选点”仍用于设置起点。","Tap a building on the map to make it your destination. Set on map still chooses your starting point."]
+    ["mapTapHelp","浏览路线时点击建筑可选终点；“地图选起点”可手动标记出发位置。","Tap a building to set your destination while previewing the map. Use Set start on map to pin your starting point."]
   ])$(id).textContent=text(zh,en);
   $("searchInput").placeholder=text("例如 B 楼或 B12","e.g. B Block or B12");
   $("reportText").placeholder=text("例如施工封路","e.g. Path blocked by construction");
@@ -214,11 +252,21 @@ function renderSimpleLabels(){
     const textNode=document.createElementNS("http://www.w3.org/2000/svg","text");textNode.setAttribute("x",x);textNode.setAttribute("y",y);textNode.textContent=key==="rakipaoa"?"R":name(key).replace(" Block","");if(key==="rakipaoa")textNode.setAttribute("class","always-label");root.append(textNode);
   }
 }
-$("toolsButton").onclick=()=>{$("toolPanel").hidden=!$("toolPanel").hidden;$("toolsButton").setAttribute("aria-expanded",String(!$("toolPanel").hidden));if(!$("toolPanel").hidden)selectTab(activeTab);};
-$("closePanel").onclick=()=>{$("toolPanel").hidden=true;$("toolsButton").setAttribute("aria-expanded","false");};
+$("toolsButton").onclick=()=>$("toolPanel").hidden?openToolPanel(activeTab):closeToolPanel();
+$("searchRoute").onclick=()=>{
+  if(!$("toolPanel").hidden&&activeTab==="search"){closeToolPanel();return;}
+  setSearchTarget("to");openToolPanel("search");$("searchInput").focus();
+};
+$("closePanel").onclick=()=>{const wasSearch=activeTab==="search";closeToolPanel();$(wasSearch?"searchRoute":"toolsButton").focus();};
 for(const button of document.querySelectorAll(".tool-tabs button"))button.onclick=()=>selectTab(button.dataset.tab);
+$("searchFrom").onclick=()=>{setSearchTarget("from");$("searchInput").focus();};
+$("searchTo").onclick=()=>{setSearchTarget("to");$("searchInput").focus();};
 $("searchInput").oninput=refreshSearch;
-$("schedulePeek").onclick=()=>{$("toolPanel").hidden=false;$("toolsButton").setAttribute("aria-expanded","true");selectTab("timetable");};
+$("searchInput").onkeydown=e=>{if(e.key==="Enter"&&topSearchMatch){e.preventDefault();chooseSearchMatch(topSearchMatch);}};
+$("schedulePeek").onclick=()=>{
+  const events=activeCalendarEvents(),next=events.find(e=>e.start>=Date.now());
+  if(next&&routeToClass(next,events))closeToolPanel();else openToolPanel("timetable");
+};
 $("icsFile").onchange=async e=>{
   const file=e.target.files?.[0];if(!file)return;
   try{
@@ -236,10 +284,11 @@ $("clearCalendar").onclick=()=>{
   $("calendarStatus").textContent=text("课表已清空。","Timetable cleared.");refreshSchedule();refreshSearch();
 };
 for(const [id,mode] of [["closeRoadMode","close"],["reportMode","report"]])$(id).onclick=()=>{
-  if(selectingPosition)cancelPinSelection();
-  roadMode=roadMode===mode?null:mode;document.body.classList.toggle("choosing-road",!!roadMode);
-  $("roadStatus").textContent=roadMode?text("现在点击地图上要修改的步道。","Now tap the walkway on the map."):"";
-  $("toolPanel").hidden=!!roadMode;$("toolsButton").setAttribute("aria-expanded",String(!$("toolPanel").hidden));renderRoads();update(.12);
+  selectingPosition=false;playing=false;velocity=0;follow=false;
+  roadMode=mode;document.body.classList.add("choosing-road");
+  $("reportForm").hidden=true;$("selectionLine").setAttribute("points","");
+  $("roadStatus").textContent=text("现在点击地图上要修改的步道。","Now tap the walkway on the map.");
+  closeToolPanel();renderRoads();update(.12);
 };
 $("saveReport").onclick=()=>{
   const value=$("reportText").value.trim();if(!pickedRoad||!value){$("roadStatus").textContent=text("请先写下问题。","Describe the issue first.");return;}
@@ -260,7 +309,7 @@ $("shareReport").onclick=async()=>{
 $("simpleToggle").onclick=()=>{
   document.body.classList.toggle("simple-map");saveLocal("fmb-simple-map-v1",document.body.classList.contains("simple-map"));refreshTools();
 };
-window.addEventListener("keydown",e=>{if(e.key==="Escape"&&roadMode){roadMode=null;document.body.classList.remove("choosing-road");renderRoads();update(.12);}});
+window.addEventListener("keydown",e=>{if(e.key!=="Escape"||$("noticeDialog").open)return;if(roadMode){cancelRoadMode();update(.12);}else if(!$("toolPanel").hidden)$("closePanel").onclick();});
 document.body.classList.toggle("simple-map",stored("fmb-simple-map-v1",false)===true);
 renderSimpleLabels();refreshTools();setInterval(refreshSchedule,60000);
 window.addEventListener("focus",refreshSchedule);

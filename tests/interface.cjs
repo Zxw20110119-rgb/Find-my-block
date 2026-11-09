@@ -21,7 +21,7 @@ for(const id of ['toolPanel','schedulePeek','timetableTab','roadsTab','mapstyleT
 const browser=vm.createContext({document,window,Date,Intl,URL,URLSearchParams,Option:function(label,value){this.label=label;this.value=value},
   localStorage:{getItem:k=>local.get(k)||null,setItem:(k,v)=>local.set(k,v)},
   location:{href:'https://example.test/',search:''},history:{replaceState(){}},requestAnimationFrame(){},setInterval(){}});
-for(const file of ['calendar.js','app.js','features.js']){
+for(const file of ['calendar.js','campus.js','app.js','features.js']){
   vm.runInContext(fs.readFileSync(path.join(dist,file),'utf8'),browser,{filename:file});
   if(file==='calendar.js')browser.CampusCalendar=window.CampusCalendar;
 }

@@ -8,7 +8,7 @@ await mkdir(output, { recursive: true });
 let html = await readFile(path.join(root, 'site/index.html'), 'utf8');
 html = html.replace('href="/privacy.html"', 'href="privacy.html"');
 
-for (const name of ['app.js', 'calendar.js', 'features.js', 'styles.css', 'notices.js', 'notices-snapshot.json']) {
+for (const name of ['app.js', 'calendar.js', 'features.js', 'styles.css', 'notices.js', 'notices-snapshot.json', 'campus.js', 'campus-defense.html', 'campus-defense.css', 'defense-engine.js', 'campus-defense.js']) {
   await cp(path.join(root, 'public', name), path.join(output, name));
 }
 await cp(path.join(root, 'public/assets'), path.join(output, 'assets'), { recursive: true });

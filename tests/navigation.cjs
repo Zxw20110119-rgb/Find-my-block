@@ -7,6 +7,7 @@ const app=fs.readFileSync(path.join(dist,'app.js'),'utf8');
 const calendar=fs.readFileSync(path.join(dist,'calendar.js'),'utf8');
 const features=fs.readFileSync(path.join(dist,'features.js'),'utf8');
 const ctx=vm.createContext({localStorage:{getItem:()=>null},window:{},Date,Intl});
+vm.runInContext(fs.readFileSync(path.join(dist,'campus.js'),'utf8'),ctx);
 vm.runInContext(app.split('const $=id=>')[0],ctx);
 vm.runInContext(calendar,ctx);
 ctx.CampusCalendar=ctx.window.CampusCalendar;

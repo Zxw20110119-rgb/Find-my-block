@@ -137,3 +137,9 @@ body.choosing-position .notice-pin,body.choosing-road .notice-pin{pointer-events
   .tool-panel{max-height:min(65dvh,calc(100dvh - 155px - env(safe-area-inset-top)))}
   .manual-position{max-width:48%;flex-shrink:0}
 }
+
+.defense-link{display:flex;align-items:center;gap:7px;width:fit-content;margin-top:12px;padding:7px 11px;border-radius:999px;background:#e5f4eb;color:#0b5c3e;text-decoration:none;font-size:12px;font-weight:750;line-height:1.2}
+.defense-link:hover{background:#cfeadb}.defense-link:focus-visible{outline:3px solid #1a73e8;outline-offset:3px}
+@media(max-width:760px){.defense-link{position:absolute;right:0;top:226px;margin-top:0;padding:8px 10px;box-shadow:0 2px 8px #20302026}.defense-link svg{width:14px;height:14px}}
+
+@media(max-width:760px){body:has(.schedule-peek:not([hidden])) .defense-link{top:270px}}

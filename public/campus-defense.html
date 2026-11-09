@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10241f">
+<meta name="description" content="Defend the Library in a tower defense game set on the Burnside High School campus map.">
+<title>Campus Defense · Find My Block</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c4034'/%3E%3Cpath d='M16 5l9 4v6c0 5-4 9-9 12-5-3-9-7-9-12V9z' fill='%239af3bf'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="campus-defense.css?v=1">
+<script defer src="campus.js?v=1"></script>
+<script defer src="defense-engine.js?v=1"></script>
+<script defer src="campus-defense.js?v=1"></script>
+</head>
+<body>
+<header class="top">
+  <div class="shell top-inner">
+    <div class="wordmark"><svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><path d="M16 3 28 8v7c0 6.7-4.7 11-12 14C8.7 26 4 21.7 4 15V8z" fill="#9af3bf"/><path d="M10 12h12v3H10zm0 5h12v4H10zm2-7h2v2h-2zm6 0h2v2h-2z" fill="#164033"/></svg><b>Find My Block</b><span data-copy="mode">GAME MODE</span></div>
+    <nav class="top-actions" aria-label="Page options"><button id="gameLanguage" type="button" aria-label="Switch language">中文</button><a id="backToMap" href="./" data-copy="back">← Campus map</a></nav>
+  </div>
+</header>
+<main class="shell game">
+  <section class="intro">
+    <div><p class="kicker"><span></span><span data-copy="eyebrow">BURNSIDE HIGH SCHOOL · TOWER DEFENSE</span></p><h1 data-copy="title">Campus Defense</h1><p data-copy="intro">Build towers on the school blocks. Stop the bots before they reach the Library.</p></div>
+    <button class="quiet help-open" id="openHelp" type="button" data-copy="how">? How to play</button>
+  </section>
+  <section class="hud" aria-label="Game stats">
+    <div class="metric"><span class="metric-icon gold" aria-hidden="true">⬡</span><div><span data-copy="credits">Credits</span><strong id="credits">270</strong></div></div>
+    <div class="metric"><span class="metric-icon green" aria-hidden="true">✚</span><div><span data-copy="integrity">Library health</span><strong id="integrity">16 / 16</strong></div></div>
+    <div class="metric"><span class="metric-icon blue" aria-hidden="true">◫</span><div><span data-copy="wave">Wave</span><strong id="wave">0 / 8</strong></div></div>
+    <div class="metric record"><span class="metric-icon violet" aria-hidden="true">✦</span><div><span data-copy="best">Best waves cleared</span><strong id="best">0 / 8</strong></div></div>
+  </section>
+  <div class="arena">
+    <section class="board" aria-labelledby="boardTitle">
+      <div class="board-top"><h2 id="boardTitle"><i></i><span data-copy="board">Campus map</span></h2><span id="roundState" class="state-pill" data-state="ready">BUILD PHASE</span></div>
+      <div class="map-frame">
+        <svg id="battleMap" viewBox="235 70 970 866" role="group" aria-label="Burnside campus battlefield; select a block to build">
+          <defs><filter id="mapTone"><feColorMatrix type="saturate" values=".53"/></filter></defs>
+          <image href="assets/campus-map.jpeg" width="1536" height="1086" filter="url(#mapTone)" opacity=".86"/>
+          <rect width="1536" height="1086" fill="#163e33" opacity=".15"/>
+          <g id="lanes"></g><g id="towerRange"></g><g id="gateMarkers"></g><g id="blockMarkers"></g><g id="bots"></g><g id="fx"></g>
+        </svg>
+      </div>
+      <div class="board-bottom"><span><i class="key site-key"></i><span data-copy="site">Build site</span></span><span><i class="key lane-key"></i><span data-copy="lane">Bot path this wave</span></span><span><i class="key library-key"></i><span data-copy="library">Library</span></span></div>
+    </section>
+    <aside class="deck" aria-label="Game controls">
+      <section class="panel operations">
+        <div class="panel-heading"><h2 data-copy="mission">Wave control</h2><button class="quiet" id="speed" type="button" aria-pressed="false" aria-label="Toggle double speed">1×</button></div>
+        <p class="status" id="status" role="status"></p>
+        <div class="progress" aria-hidden="true"><div id="waveProgress"></div></div>
+        <div class="actions"><button class="launch" id="launch" type="button" disabled>Launch wave 1</button><button class="quiet" id="resetGame" type="button" data-copy="reset">Restart</button></div>
+      </section>
+      <section class="panel workshop" aria-labelledby="blockName">
+        <div class="panel-heading"><p class="eyebrow" data-copy="workshop">BUILD & UPGRADE</p><label class="picker"><span class="sr-only" data-copy="pick">Select a block</span><select id="pickBlock" aria-label="Select a block"></select></label></div>
+        <h2 id="blockName">B Block</h2>
+        <p id="padHint" class="hint"></p>
+        <div id="towerShop" class="shop">
+          <button type="button" class="tower" data-tower="pulse"><span class="tower-icon pulse" aria-hidden="true">◇</span><span><b data-copy="pulse">Pulse</b><small data-copy="pulseDesc">Fast, single target</small></span><span class="price">⬡ 90</span></button>
+          <button type="button" class="tower" data-tower="frost"><span class="tower-icon frost" aria-hidden="true">✳</span><span><b data-copy="frost">Frost</b><small data-copy="frostDesc">Slows nearby bots</small></span><span class="price">⬡ 115</span></button>
+          <button type="button" class="tower" data-tower="burst"><span class="tower-icon burst" aria-hidden="true">✹</span><span><b data-copy="burst">Burst</b><small data-copy="burstDesc">Long range, area damage</small></span><span class="price">⬡ 145</span></button>
+        </div>
+        <div id="builtTower" hidden><div class="unit"><span id="unitIcon" class="tower-icon"></span><div><b id="unitName"></b><small id="unitStats"></small></div></div><div class="actions"><button id="upgrade" class="launch" type="button"></button><button id="sell" class="quiet" type="button"></button></div></div>
+        <p class="sr-only" id="buildStatus" role="status"></p>
+      </section>
+    </aside>
+  </div>
+  <footer><span data-copy="credit">Burnside High School campus map</span><span><b id="bestFooter">Best: 0 / 8</b> · <span data-copy="local">Saved on this device</span></span></footer>
+</main>
+<dialog id="helpDialog" aria-labelledby="helpTitle">
+  <form method="dialog"><div class="dialog-heading"><h2 id="helpTitle" data-copy="helpTitle">How to play</h2><button class="quiet" type="submit" aria-label="Close">✕</button></div>
+  <ol><li data-copy="step1">Tap a letter on the map or choose a block from the menu. Pick a tower to build it. Hover or focus a tower option to preview its range.</li><li data-copy="step2">Launch a wave. Towers fire automatically. The dashed lines show the paths bots will take, and each bot that reaches the Library costs health.</li><li data-copy="step3">Spend earned credits to expand and upgrade. Protect the Library through all eight waves.</li></ol>
+  <button class="launch" type="submit" data-copy="gotIt">Got it</button></form>
+</dialog>
+<dialog id="resetDialog" aria-labelledby="resetTitle"><form method="dialog"><h2 id="resetTitle" data-copy="resetTitle">Restart this game?</h2><p data-copy="resetDetail">Your current run will be reset. Your best score stays saved.</p><div class="actions"><button class="quiet" value="cancel" type="submit" data-copy="cancel">Cancel</button><button class="launch" value="restart" type="submit" data-copy="reset">Restart</button></div></form></dialog>
+</body></html>

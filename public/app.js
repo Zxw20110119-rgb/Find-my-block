@@ -33,6 +33,7 @@ return {path,points,distance:nearest.distance};
 const $=id=>document.getElementById(id);
 let lang="en",path=[],points=[],total=0,travel=0,playing=false,started=false,follow=true,zoom=1,pan=[0,0],angle=0,last=0,velocity=0,lastInstruction="",lastIcon="",routeAvailable=true;
 let pinnedStart=null,selectingPosition=false,pinWalkwayDistance=0,overviewExtra=[];
+const inDefense=()=>$("app").classList.contains("defense-mode");
 const hasPlace=key=>Object.hasOwn(places,key);
 const hasPinnedStart=()=>!!pinnedStart&&$("from").value==="pinned";
 const choosingRoad=()=>typeof roadMode!=="undefined"&&!!roadMode;
@@ -77,6 +78,7 @@ function manualInfo(){
   return "";
 }
 function camera(state,dt=.016){
+if(inDefense())return;
 const w=$("map").clientWidth,h=$("map").clientHeight,mobile=w<=760;
 let scale,cx,cy,px,py,rotation;
 const canFollow=!selectingPosition&&!choosingRoad()&&follow;
@@ -135,16 +137,17 @@ camera(state,dt);
 $("network").innerHTML=chains.flatMap(c=>c.slice(1).map((b,i)=>'<polyline points="'+[c[i],b].map(k=>nodes[k].join(",")).join(" ")+'"/>')).join("");
 options();
 const params=new URLSearchParams(location.search);
+if(params.get("lang")==="zh"){lang="zh";document.documentElement.lang="zh-CN";options();}
 $("from").value=hasPlace(params.get("start"))?params.get("start"):"library";
 $("to").value=hasPlace(params.get("end"))?params.get("end"):"k";
 $("from").onchange=plan;$("to").onchange=plan;
 $("swap").onclick=()=>{if(hasPinnedStart())return;const a=$("from").value;$("from").value=$("to").value;$("to").value=a;plan();};
 function updateGameLink(){
   $("defenseLabel").textContent=text("校园塔防","Campus Defense");
-  $("defenseLink").href=lang==="zh"?"campus-defense.html?lang=zh":"campus-defense.html";
+  $("defenseLink").href=lang==="zh"?"?mode=defense&lang=zh":"?mode=defense";
 }
 updateGameLink();
-$("language").onclick=()=>{lang=lang==="zh"?"en":"zh";document.documentElement.lang=lang==="zh"?"zh-CN":"en";options();update(.16);updateGameLink();if(typeof refreshTools==="function")refreshTools();};
+$("language").onclick=()=>{lang=lang==="zh"?"en":"zh";document.documentElement.lang=lang==="zh"?"zh-CN":"en";options();update(.16);updateGameLink();if(typeof refreshTools==="function")refreshTools();window.DefenseUI?.translate();};
 $("start").onclick=()=>{if(!routeAvailable||total===0||selectingPosition||choosingRoad())return;
 if(!started||travel>=total){travel=0;velocity=0;started=true;playing=true;follow=true;pan=[0,0];overviewExtra=[];}
 else{playing=!playing;if(!playing)velocity=0;}
@@ -158,7 +161,7 @@ $("plus").onclick=()=>{zoom=Math.min(3,zoom*1.25);update(.18);};
 $("minus").onclick=()=>{zoom=Math.max(.45,zoom/1.25);update(.18);};
 let drag=null;
 $("map").onpointerdown=e=>{
-  if(drag||e.isPrimary===false||e.button!==0)return;
+  if(inDefense()||drag||e.isPrimary===false||e.button!==0)return;
   drag={id:e.pointerId,x:e.clientX,y:e.clientY,pan:[...pan],moved:false};
   $("map").setPointerCapture(e.pointerId);
 };
@@ -178,6 +181,6 @@ $("map").onpointerup=e=>{
 $("map").onpointercancel=$("map").onlostpointercapture=e=>{if(drag?.id===e.pointerId)drag=null;};
 window.addEventListener("keydown",e=>{if(e.key==="Escape"&&selectingPosition)cancelPinSelection();});
 window.addEventListener("resize",()=>camera(activeState()));
-function tick(now){const dt=last?Math.min((now-last)/1000,.12):0;if(playing&&dt){const response=1-Math.exp(-dt*6);velocity+=(30-velocity)*response;travel=Math.min(total,travel+velocity*dt);if(travel>=total){playing=false;velocity=0;}update(dt);}else if(!playing&&velocity>0.05){velocity*=Math.exp(-dt*9);}last=now;window.NoticeMap?.updatePins();requestAnimationFrame(tick);}
+function tick(now){const dt=last?Math.min((now-last)/1000,.12):0;if(playing&&dt){const response=1-Math.exp(-dt*6);velocity+=(30-velocity)*response;travel=Math.min(total,travel+velocity*dt);if(travel>=total){playing=false;velocity=0;}update(dt);}else if(!playing&&velocity>0.05){velocity*=Math.exp(-dt*9);}last=now;if(!inDefense())window.NoticeMap?.updatePins();requestAnimationFrame(tick);}
 plan();requestAnimationFrame(tick);
 if(document.modelContext?.registerTool){try{Promise.resolve(document.modelContext.registerTool({name:"plan_campus_route",description:"Plan a campus route along the marked walkways; location is simulated.",inputSchema:{type:"object",properties:{start:{type:"string",enum:Object.keys(places)},destination:{type:"string",enum:Object.keys(places)}},required:["start","destination"],additionalProperties:false},annotations:{readOnlyHint:false},execute(input){if(!input||!hasPlace(input.start)||!hasPlace(input.destination))throw Error("Unknown location");$("from").value=input.start;$("to").value=input.destination;plan();return {start:input.start,destination:input.destination,simulation:true};}})).catch(()=>{});}catch{}}

@@ -84,7 +84,7 @@ function syncClassRoute(event,events){
   if(!event){lastAutoClassKey="";return;}
   const context=classRouteContext(event,events);
   const key=JSON.stringify([event.id,context.previous?.id,context.from,context.to]);
-  if(!context.to||key===lastAutoClassKey||selectingPosition||roadMode||started||$("noticeDialog").open)return;
+  if(inDefense()||!context.to||key===lastAutoClassKey||selectingPosition||roadMode||started||$("noticeDialog").open)return;
   if(routeToClass(event,events))lastAutoClassKey=key;
 }
 function updatePanelControls(){

@@ -150,7 +150,7 @@ globalThis.CampusDefense = (() => {
           s.credits += foes[e.type].reward;
         }
       }
-      s.effects.push({id:++s.serial, x:pad.x, y:pad.y, tx:target.x, ty:target.y, color:tower.color, splash:tower.splash, until:s.time + .18});
+      s.effects.push({id:++s.serial, pad:pad.id, x:pad.x, y:pad.y, tx:target.x, ty:target.y, color:tower.color, splash:tower.splash, until:s.time + .18});
     }
     s.enemies = s.enemies.filter(e => e.hp > 0);
     s.effects = s.effects.filter(e => e.until > s.time);

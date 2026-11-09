@@ -1,15 +1,17 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#fff"><title>Find My Block · Campus Navigation</title><meta name="description" content="Find Burnside blocks and classrooms using marked campus walkways and an imported timetable."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231a73e8'/%3E%3Cpath d='M16 5 26 26 16 21 6 26Z' fill='white'/%3E%3C/svg%3E"><link rel="stylesheet" href="styles.css?v=20261109a"><script defer src="calendar.js?v=20261105a"></script><script defer src="campus.js?v=1"></script><script defer src="app.js?v=20261109a"></script><script defer src="features.js?v=20261105a"></script><script defer src="notices.js?v=20261105a"></script></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#fff"><title>Find My Block · Campus Navigation</title><meta name="description" content="Find Burnside blocks and classrooms using marked campus walkways and an imported timetable."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231a73e8'/%3E%3Cpath d='M16 5 26 26 16 21 6 26Z' fill='white'/%3E%3C/svg%3E"><link rel="stylesheet" href="styles.css?v=20261109b"><link rel="stylesheet" href="campus-defense.css?v=2"><script defer src="calendar.js?v=20261105a"></script><script defer src="campus.js?v=1"></script><script defer src="app.js?v=20261109b"></script><script defer src="features.js?v=20261109b"></script><script defer src="notices.js?v=20261105a"></script><script defer src="defense-engine.js?v=2"></script><script defer src="campus-defense.js?v=2"></script></head>
 <body>
 <main id="app">
-<div id="map" aria-label="Campus navigation map"><div id="world"><img src="assets/campus-map.jpeg" width="1536" height="1086" alt="Burnside High School campus map"><svg viewBox="0 0 1536 1086" aria-label="Routes drawn along the marked walkways"><g id="network"></g><g id="closedNetwork"></g><polyline id="selectionLine"/><g id="simpleLabels"></g><polyline id="halo" pathLength="1"/><polyline id="route" pathLength="1"/><g id="destination"><circle r="15" fill="#ea4335" stroke="white" stroke-width="5"/></g><g id="position"><circle r="24" fill="#1a73e8" opacity=".16"/><path id="positionArrow" d="M0 -18 13 14 0 8 -13 14Z" fill="#1a73e8" stroke="white" stroke-width="4"/><circle id="positionDot" r="8" fill="#1a73e8" stroke="white" stroke-width="3" style="display:none"/></g></svg></div><div id="noticePins" aria-label="School notice locations"></div></div>
-<header class="planner">
+<div id="map" aria-label="Campus navigation map"><div id="world"><img src="assets/campus-map.jpeg" width="1536" height="1086" alt="Burnside High School campus map"><svg id="mapLayers" viewBox="0 0 1536 1086" aria-label="Routes drawn along the marked walkways"><g data-nav id="routeLayers"><g id="network"></g><g id="closedNetwork"></g><polyline id="selectionLine"/><g id="simpleLabels"></g><polyline id="halo" pathLength="1"/><polyline id="route" pathLength="1"/><g id="destination"><circle r="15" fill="#ea4335" stroke="white" stroke-width="5"/></g><g id="position"><circle r="24" fill="#1a73e8" opacity=".16"/><path id="positionArrow" d="M0 -18 13 14 0 8 -13 14Z" fill="#1a73e8" stroke="white" stroke-width="4"/><circle id="positionDot" r="8" fill="#1a73e8" stroke="white" stroke-width="3" style="display:none"/></g></g><g id="battleMap" role="group" data-game><g id="lanes"></g><g id="towerRange"></g><g id="gateMarkers"></g><g id="blockMarkers"></g><g id="bots"></g><g id="fx"></g></g></svg></div><div id="noticePins" data-nav aria-label="School notice locations"></div>
+<div class="def-map-key defense-ui" data-game><span><i></i><span data-copy="lane">Bot path this wave</span></span><span><i></i><span data-copy="library">Library</span></span></div>
+</div>
+<header class="planner" data-nav>
 <div class="brand"><b>Find My Block</b><button id="searchRoute" type="button" aria-controls="toolPanel" aria-expanded="false">Search</button><button id="toolsButton" type="button" aria-label="Open tools" aria-expanded="false">Tools</button><button id="language" aria-label="Switch language">中文</button></div>
 <div class="fields"><div class="selects"><label><i class="start-dot"></i><select id="from" aria-label="Starting point"></select></label><label><i class="end-dot"></i><select id="to" aria-label="Destination"></select></label></div><button id="swap" aria-label="Swap start and destination">⇅</button></div>
-<a id="defenseLink" class="defense-link" href="campus-defense.html"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true"><path d="M12 3 20 6v5c0 5-3.6 8.2-8 10-4.4-1.8-8-5-8-10V6zM9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="defenseLabel">Campus Defense</span><span aria-hidden="true">↗</span></a>
+<a id="defenseLink" class="defense-link" href="?mode=defense"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true"><path d="M12 3 20 6v5c0 5-3.6 8.2-8 10-4.4-1.8-8-5-8-10V6zM9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="defenseLabel">Campus Defense</span><span aria-hidden="true">→</span></a>
 </header>
-<button id="schedulePeek" class="schedule-peek" type="button" hidden></button>
-<section id="toolPanel" class="tool-panel" aria-label="Navigation tools" hidden>
+<button data-nav id="schedulePeek" class="schedule-peek" type="button" hidden></button>
+<section data-nav id="toolPanel" class="tool-panel" aria-label="Navigation tools" hidden>
   <div class="tool-head"><strong id="panelTitle">Explore</strong><button id="closePanel" type="button" aria-label="Close tools">×</button></div>
   <nav class="tool-tabs" aria-label="Tools"><button data-tab="search" class="active" type="button">Search</button><button data-tab="notices" type="button">Notices</button><button data-tab="timetable" type="button">Timetable</button><button data-tab="roads" type="button">Roads</button><button data-tab="mapstyle" type="button">Map</button></nav>
   <div id="searchTab" class="tab-content"><div class="search-target" role="group" aria-label="Set route point"><button id="searchFrom" type="button" aria-pressed="false">Starting point</button><button id="searchTo" type="button" aria-pressed="true">Destination</button></div><label id="searchLabel" for="searchInput">Find a block or classroom</label><input id="searchInput" type="search" placeholder="e.g. B Block or B12" autocomplete="off"><div id="searchResults" class="result-list"></div></div>
@@ -36,18 +38,67 @@
   </div>
   <div id="mapstyleTab" class="tab-content" hidden><p id="mapHelp" class="tool-copy">Show building names clearly over a faded campus map.</p><button id="simpleToggle" type="button" class="tool-action">Turn on simple map</button><p id="mapTapHelp" class="tool-copy">Tap a building on the map to make it your destination. Set on map still chooses your starting point.</p></div>
 </section>
-<section id="guidance" class="guidance" aria-live="polite"><span id="turnIcon">↑</span><div><strong id="instruction"></strong><span id="next"></span></div></section>
-<div class="map-actions"><button id="plus" aria-label="Zoom in">+</button><button id="minus" aria-label="Zoom out">−</button><button id="overview" aria-label="Show route overview">⊞</button><button id="follow" aria-label="Follow travel direction">➤</button></div>
-<button id="noticePeek" class="notice-peek" type="button">School notices</button>
-<span class="demo-badge" id="badge">Route preview</span>
-<section class="bottom" id="bottomCard">
+<section data-nav id="guidance" class="guidance" aria-live="polite"><span id="turnIcon">↑</span><div><strong id="instruction"></strong><span id="next"></span></div></section>
+<div class="map-actions" data-nav><button id="plus" aria-label="Zoom in">+</button><button id="minus" aria-label="Zoom out">−</button><button id="overview" aria-label="Show route overview">⊞</button><button id="follow" aria-label="Follow travel direction">➤</button></div>
+<button data-nav id="noticePeek" class="notice-peek" type="button">School notices</button>
+<span data-nav class="demo-badge" id="badge">Route preview</span>
+<section data-nav class="bottom" id="bottomCard">
 <div class="trip"><div><h1 id="tripTitle"></h1><p id="tripSubtitle"></p></div><button id="setPosition" class="manual-position">Set start on map</button></div>
 <p id="manualStatus" class="manual-status" role="status" hidden></p>
 <div id="progressWrap" hidden><label id="progressLabel" for="progress"></label><input id="progress" type="range" min="0" max="1000" value="0" aria-label="Simulated route progress"></div>
 <div class="buttons"><button id="start" class="primary"></button><button id="reset" class="secondary"></button></div>
 <p id="note" class="note"></p>
 </section>
-<div class="map-credit">Burnside High School · Campus map</div>
+<div class="map-credit" data-nav>Burnside High School · Campus map</div>
 <dialog id="noticeDialog" class="notice-dialog" aria-labelledby="noticeDialogTitle"><div class="notice-dialog-head"><h2 id="noticeDialogTitle">School notices</h2><button id="noticeClose" type="button" aria-label="Close notice">×</button></div><div id="noticeDetail"></div></dialog>
+<header id="defenseHud" class="defense-ui" data-game>
+  <div class="def-heading">
+    <p data-copy="eyebrow">FIND MY BLOCK / GAME MODE</p>
+    <h1 id="defenseTitle" tabindex="-1" data-copy="title">Campus Defense</h1>
+  </div>
+  <div class="def-metrics" role="group" aria-label="Game stats">
+    <div class="def-metric def-credit"><span data-copy="credits">Credits</span><strong id="credits">270</strong></div>
+    <div class="def-metric def-health"><span data-copy="integrity">Library health</span><strong id="integrity">16 / 16</strong></div>
+    <div class="def-metric def-wave"><span data-copy="wave">Wave</span><strong id="wave">0 / 8</strong></div>
+  </div>
+  <nav class="def-nav" aria-label="Game options">
+    <button id="openHelp" class="def-quiet def-help" type="button" data-copy="how">How to play</button>
+    <button id="gameLanguage" class="def-quiet" type="button" aria-label="Switch language">中文</button>
+    <button id="backToMap" class="def-quiet" type="button" data-copy="back">← Navigation</button>
+  </nav>
+</header>
+<aside id="defenseDeck" class="defense-ui" data-game aria-label="Game controls">
+  <section class="def-panel def-operations">
+    <div class="def-op-heading"><h2 data-copy="mission">Wave control</h2><span id="roundState" class="def-phase" data-state="ready">BUILD PHASE</span></div>
+    <p class="def-status" id="status" role="status"></p>
+    <div class="def-progress" aria-hidden="true"><div id="waveProgress"></div></div>
+    <div class="def-actions"><button class="def-launch" id="launch" type="button" disabled>Launch wave 1</button><button class="def-quiet" id="speed" type="button" aria-pressed="false" aria-label="Toggle double speed">1×</button><button class="def-quiet" id="resetGame" type="button" data-copy="reset">Restart</button></div>
+  </section>
+  <section id="defenseWorkshop" class="def-panel def-workshop" aria-labelledby="blockName">
+    <div class="def-work-head"><div><p class="def-overline" data-copy="workshop">TOWER WORKSHOP</p><h2 id="blockName">E Block</h2></div><select id="pickBlock" aria-label="Select a block"></select></div>
+    <p id="padHint" class="def-hint"></p>
+    <div id="towerShop" class="def-shop">
+      <button type="button" class="def-tower" data-tower="pulse"><span class="def-thumb tower-model" data-model="pulse" data-angle="2" aria-hidden="true"></span><span class="def-tower-copy"><b data-copy="pulse">Pulse</b><small data-copy="pulseDesc">Fast, single target</small></span><span class="def-price">90</span></button>
+      <button type="button" class="def-tower" data-tower="frost"><span class="def-thumb tower-model" data-model="frost" data-angle="2" aria-hidden="true"></span><span class="def-tower-copy"><b data-copy="frost">Frost</b><small data-copy="frostDesc">Slows nearby bots</small></span><span class="def-price">115</span></button>
+      <button type="button" class="def-tower" data-tower="burst"><span class="def-thumb tower-model" data-model="burst" data-angle="2" aria-hidden="true"></span><span class="def-tower-copy"><b data-copy="burst">Burst</b><small data-copy="burstDesc">Long range, area damage</small></span><span class="def-price">145</span></button>
+    </div>
+    <div id="builtTower" hidden><div class="def-unit"><span id="unitIcon" class="def-thumb tower-model" data-angle="2" aria-hidden="true"></span><div><b id="unitName"></b><small id="unitStats"></small></div></div><div class="def-actions"><button id="upgrade" class="def-launch" type="button"></button><button id="sell" class="def-quiet" type="button"></button></div></div>
+    <div class="def-work-foot"><button id="mobileHelp" class="def-quiet" type="button" data-copy="how">How to play</button><button id="inspectModels" class="def-quiet" type="button" data-copy="inspect">Inspect models</button><span id="bestFooter"></span></div>
+    <p class="def-sr" id="buildStatus" role="status"></p>
+  </section>
+</aside>
+<dialog class="defense-ui def-dialog" id="helpDialog" aria-labelledby="helpTitle">
+  <form method="dialog"><h2 id="helpTitle" data-copy="helpTitle">How to play</h2>
+  <ol><li data-copy="step1">Select a block and build a tower.</li><li data-copy="step2">Launch a wave. Towers fire automatically.</li><li data-copy="step3">Upgrade your towers and survive all eight waves.</li></ol>
+  <button class="def-launch" type="submit" data-copy="gotIt">Got it</button></form>
+</dialog>
+<dialog class="defense-ui def-dialog" id="resetDialog" aria-labelledby="resetTitle"><form method="dialog"><h2 id="resetTitle" data-copy="resetTitle">Restart this game?</h2><p data-copy="resetDetail">Your best score stays saved.</p><div class="def-actions"><button class="def-quiet" value="cancel" type="submit" data-copy="cancel">Cancel</button><button class="def-launch" value="restart" type="submit" data-copy="reset">Restart</button></div></form></dialog>
+<dialog class="defense-ui def-dialog def-model-dialog" id="modelDialog" aria-labelledby="modelTitle">
+  <div class="def-model-head"><div><p class="def-overline" data-copy="modelLab">TOWER LAB</p><h2 id="modelTitle">Pulse</h2></div><form method="dialog"><button class="def-quiet" type="submit" aria-label="Close" data-copy="close">Close</button></form></div>
+  <div class="def-model-stage"><span id="modelStage" class="tower-model" data-model="pulse" data-angle="2" aria-hidden="true"></span></div>
+  <div class="def-model-turn"><button id="turnLeft" class="def-quiet" type="button" aria-label="Rotate model left">←</button><p data-copy="dragModel">Drag to rotate</p><button id="turnRight" class="def-quiet" type="button" aria-label="Rotate model right">→</button></div>
+  <div id="modelTypes" class="def-model-types" role="group" aria-label="Choose a tower model"><button class="def-quiet" type="button" data-inspect="pulse" data-copy="pulse">Pulse</button><button class="def-quiet" type="button" data-inspect="frost" data-copy="frost">Frost</button><button class="def-quiet" type="button" data-inspect="burst" data-copy="burst">Burst</button></div>
+  <a id="modelFile" class="def-model-file" href="assets/towers/pulse.glb" download data-copy="download">Download 3D model (.glb)</a>
+</dialog>
 </main>
 </body></html>

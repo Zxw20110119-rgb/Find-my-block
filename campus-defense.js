@@ -7,20 +7,21 @@
     return el;
   };
   const copy = {
-    mode:['GAME MODE','游戏模式'], back:['← Campus map','← 返回校园地图'], eyebrow:['BURNSIDE HIGH SCHOOL · TOWER DEFENSE','BURNSIDE 高中 · 塔防游戏'],
+    back:['← Navigation','← 返回导航'], eyebrow:['FIND MY BLOCK / GAME MODE','FIND MY BLOCK / 游戏模式'],
     title:['Campus Defense','校园塔防'], intro:['Build towers on the school blocks. Stop the bots before they reach the Library.','在各个 Block 建塔，阻止机器人抵达图书馆。'],
-    how:['? How to play','? 怎么玩'], credits:['Credits','点数'], integrity:['Library health','图书馆生命'], wave:['Wave','波次'], best:['Best waves cleared','最高通关波数'],
+    how:['How to play','怎么玩'], credits:['Credits','点数'], integrity:['Library health','图书馆生命'], wave:['Wave','波次'], best:['Best waves cleared','最高通关波数'],
     board:['Campus map','校园地图'], site:['Build site','建塔位置'], lane:['Bot path this wave','本波路线'], library:['Library','图书馆'],
-    mission:['Wave control','波次控制'], reset:['Restart','重开'], workshop:['BUILD & UPGRADE','建塔与升级'], pick:['Select a block','选择 Block'],
+    mission:['Wave control','波次控制'], reset:['Restart','重开'], workshop:['TOWER WORKSHOP','炮台工坊'], pick:['Select a block','选择 Block'],
     pulse:['Pulse','脉冲塔'], pulseDesc:['Fast, single target','快速攻击单个目标'], frost:['Frost','冰冻塔'], frostDesc:['Slows nearby bots','减速附近机器人'], burst:['Burst','爆破塔'], burstDesc:['Long range, area damage','远程范围伤害'],
     credit:['Burnside High School campus map','Burnside 高中校园地图'], local:['Saved on this device','保存在此设备'],
     helpTitle:['How to play','玩法说明'], step1:['Tap a letter on the map or choose a block from the menu. Pick a tower to build it. Hover or focus a tower option to preview its range.','点击地图上的字母或从菜单选 Block，再选择要建的塔。悬停或聚焦塔的选项可预览射程。'],
     step2:['Launch a wave. Towers fire automatically. The dashed lines show the paths bots will take, and each bot that reaches the Library costs health.','开始波次后，防御塔会自动攻击。虚线是机器人的路线，机器人到达图书馆会扣生命。'],
     step3:['Spend earned credits to expand and upgrade. Protect the Library through all eight waves.','用赚到的点数建新塔或升级，守住图书馆八波即可获胜。'],
     gotIt:['Got it','知道了'], resetTitle:['Restart this game?','重新开始这局？'], resetDetail:['Your current run will be reset. Your best score stays saved.','本局进度会重置，最高纪录会保留。'], cancel:['Cancel','取消'],
+    inspect:['Inspect models','查看炮台模型'], modelLab:['TOWER LAB','炮台工坊'], close:['Close','关闭'], dragModel:['Drag to rotate','拖动旋转'], download:['Download 3D model (.glb)','下载 3D 模型 (.glb)'],
     ready:['BUILD PHASE','建塔阶段'], active:['WAVE INCOMING','机器人来袭'], paused:['PAUSED','已暂停'], won:['CAMPUS SECURED','防守成功'], lost:['LIBRARY OVERRUN','防守失败'],
   };
-  let locale = new URLSearchParams(location.search).get('lang') === 'zh' ? 1 : 0;
+  let locale = lang === 'zh' ? 1 : 0;
   const tr = key => copy[key][locale];
   const setText = (el, value) => { if (el.textContent !== String(value)) el.textContent = value; };
   const t = (en, zh) => locale ? zh : en;
@@ -30,10 +31,21 @@
   let s = game.state(), selected = 'e', preview = null, paused = false, last = 0, frame = 0;
   const padElements = new Map(), laneElements = new Map(), gates = new Map(), botElements = new Map();
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  const compact = matchMedia('(max-width: 800px)');
-  const referrer = document.referrer && new URL(document.referrer);
-  const home = new URL('./', location.href);
-  if (referrer && referrer.origin === home.origin && [home.pathname, home.pathname + 'index.html'].includes(referrer.pathname)) $('backToMap').href = referrer.href;
+  const compact = matchMedia('(max-width: 850px)');
+  const tile = 176, frameCount = 12;
+  const wrapAngle = angle => (angle % frameCount + frameCount) % frameCount;
+  const angleFor = (dx,dy) => wrapAngle(Math.round(Math.atan2(dx,-dy) * frameCount / (2 * Math.PI)));
+  const mesh = (type, ext) => 'assets/towers/' + type + '.' + ext;
+  function spriteAngle(sprite, angle) {
+    if (sprite.dataset.angle === String(angle)) return;
+    sprite.dataset.angle = angle;
+    sprite.setAttribute('viewBox', (angle % 4 * tile) + ' ' + (Math.floor(angle / 4) * tile) + ' ' + tile + ' ' + tile);
+  }
+  function thumbAngle(thumb, angle) {
+    thumb.dataset.angle = angle;
+    thumb.style.setProperty('--frame-x', angle % 4 * 100 / 3 + '%');
+    thumb.style.setProperty('--frame-y', Math.floor(angle / 4) * 50 + '%');
+  }
 
   function padName(pad, short = false) {
     const block = t(pad.label + ' Block', pad.label + ' 楼');
@@ -59,16 +71,21 @@
   $('gateMarkers').append(library);
   for (const pad of game.pads) {
     const el = svg('g', {class:'pad', transform:'translate(' + pad.x + ' ' + pad.y + ')', role:'button', tabindex:0});
-    const title = svg('title'), letter = svg('text',{class:'letter'}), badge = svg('g'), level = svg('text', {x:20, y:16, class:'level'});
+    const title = svg('title'), letter = svg('text',{class:'letter'}), badge = svg('g'), level = svg('text', {x:23, y:19, class:'level'});
+    const turret = svg('g', {class:'unit-stage'});
+    const sprite = svg('svg', {x:-36,y:-42,width:72,height:72,overflow:'hidden', class:'unit-sprite'});
+    const atlas = svg('image', {width:704,height:528, 'aria-hidden':'true'});
+    sprite.append(atlas);
+    turret.append(svg('circle',{cy:5,r:26,class:'unit-rim'}), sprite);
     letter.textContent = pad.label;
-    badge.append(svg('circle', {cx:20, cy:16, r:12, class:'level-bg'}), level);
-    el.append(title, svg('rect',{x:-29,y:-27,width:58,height:54,rx:14,fill:'transparent'}),svg('rect',{x:-23,y:-20,width:46,height:40,rx:11,class:'tile'}),letter,badge);
+    badge.append(svg('circle', {cx:23, cy:19, r:11, class:'level-bg'}), level);
+    el.append(title, svg('rect',{x:-30,y:-32,width:60,height:61,rx:14,fill:'transparent'}),svg('rect',{x:-23,y:-20,width:46,height:40,rx:11,class:'tile'}),letter,turret,badge);
     el.addEventListener('click', () => selectPad(pad.id, true));
     el.addEventListener('keydown', event => {
       if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectPad(pad.id, true); }
     });
     $('blockMarkers').append(el);
-    padElements.set(pad.id,{el,title,badge,level});
+    padElements.set(pad.id,{el,title,badge,level,turret,sprite,atlas,model:null});
   }
   function updateRange() {
     const p = game.pads.find(pad => pad.id === selected), unit = s.units.get(selected);
@@ -80,7 +97,7 @@
     selected = id;
     preview = null;
     render();
-    if (fromMap && compact.matches) $('blockName').closest('.workshop').scrollIntoView({block:'nearest', behavior:reduced.matches ? 'instant' : 'smooth'});
+    if (fromMap && compact.matches) $('defenseWorkshop').scrollIntoView({block:'nearest', behavior:reduced.matches ? 'instant' : 'smooth'});
   }
   function updateBoard() {
     const activeLanes = new Set(game.waves[Math.max(0, Math.min(game.MAX_WAVES - 1, s.wave - (s.status === 'ready' ? 0 : 1)))][3]);
@@ -88,7 +105,8 @@
     for (const [id, line] of laneElements) line.classList.toggle('active', activeLanes.has(id));
     for (const [point, gate] of gates) gate.style.display = openGates.has(point) ? '' : 'none';
     for (const p of game.pads) {
-      const {el,title,badge,level} = padElements.get(p.id);
+      const pad = padElements.get(p.id);
+      const {el,title,badge,level,turret,sprite,atlas} = pad;
       const unit = s.units.get(p.id);
       el.classList.toggle('selected', p.id === selected);
       el.classList.toggle('built', !!unit);
@@ -96,8 +114,13 @@
       el.setAttribute('aria-label', name);
       el.setAttribute('aria-pressed', String(p.id === selected));
       setText(title, name);
-      badge.style.display = unit ? '' : 'none';
-      if (unit) { el.style.setProperty('--tower', game.towers[unit.type].color); level.textContent = unit.level; }
+      badge.style.display = turret.style.display = unit ? '' : 'none';
+      if (pad.model !== (unit?.type ?? null)) {
+        pad.model = unit?.type ?? null;
+        if (unit) { atlas.setAttribute('href', mesh(unit.type, 'webp')); spriteAngle(sprite, 2); }
+        else atlas.removeAttribute('href');
+      }
+      if (unit) { el.style.setProperty('--tower', game.towers[unit.type].color); setText(level, unit.level); }
     }
     setText(label, tr('library'));
     updateRange();
@@ -114,8 +137,7 @@
     for (const button of $('towerShop').querySelectorAll('[data-tower]')) button.disabled = ended || s.credits < game.towers[button.dataset.tower].cost;
     if (!unit) return;
     const tower = game.stats(unit.type, unit.level), cost = game.upgradeCost(unit);
-    $('unitIcon').textContent = tower.icon;
-    $('unitIcon').className = 'tower-icon ' + unit.type;
+    $('unitIcon').dataset.model = unit.type;
     $('unitName').textContent = tr(unit.type) + ' · ' + t('Level ', '等级 ') + unit.level;
     $('unitStats').textContent = t(tower.damage + ' damage per shot', '每发伤害 ' + tower.damage);
     $('upgrade').textContent = cost ? t('Upgrade', '升级') + ' · ⬡ ' + cost : t('Max level', '满级');
@@ -128,7 +150,6 @@
     $('credits').textContent = s.credits;
     $('integrity').textContent = s.integrity + ' / ' + game.START_INTEGRITY;
     $('wave').textContent = s.wave + ' / ' + game.MAX_WAVES;
-    setText($('best'), best + ' / ' + game.MAX_WAVES);
     setText($('bestFooter'), t('Best: ', '最高纪录：') + best + ' / ' + game.MAX_WAVES);
     $('roundState').textContent = tr(status);
     $('roundState').dataset.state = status;
@@ -177,7 +198,10 @@
     }
     for (const [id,{el}] of botElements) if (!onMap.has(id)) { el.remove(); botElements.delete(id); }
     const effects = [];
-    if (!reduced.matches) for (const fx of s.effects) {
+    for (const fx of s.effects) {
+      const pad = padElements.get(fx.pad);
+      if (pad?.model) spriteAngle(pad.sprite, angleFor(fx.tx - fx.x, fx.ty - fx.y));
+      if (reduced.matches) continue;
       const opacity = Math.min(1, (fx.until - s.time) / .18);
       effects.push(svg('line', {x1:fx.x, y1:fx.y, x2:fx.tx, y2:fx.ty, stroke:fx.color, 'stroke-width':4, 'stroke-linecap':'round', opacity}));
       if (fx.splash) effects.push(svg('circle', {cx:fx.tx, cy:fx.ty, r:fx.splash * (1 - opacity * .55), fill:'none', stroke:fx.color, 'stroke-width':2.5, opacity}));
@@ -237,7 +261,7 @@
     if ($('resetDialog').returnValue === 'restart') reset();
     $('resetDialog').returnValue = '';
   });
-  $('openHelp').addEventListener('click', () => { pause(); $('helpDialog').showModal(); });
+  for (const id of ['openHelp','mobileHelp']) $(id).addEventListener('click', () => { pause(); $('helpDialog').showModal(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
   for (const button of $('towerShop').querySelectorAll('[data-tower]')) {
     const type = button.dataset.tower;
@@ -268,35 +292,110 @@
     $('pickBlock').focus({preventScroll:true});
   });
   function translate() {
-    document.documentElement.lang = t('en','zh-CN');
-    document.title = tr('title') + ' · Find My Block';
-    for (const item of document.querySelectorAll('[data-copy]')) item.textContent = tr(item.dataset.copy);
+    locale = lang === 'zh' ? 1 : 0;
+    document.title = inDefense() ? tr('title') + ' · Find My Block' : 'Find My Block · Campus Navigation';
+    for (const item of document.querySelectorAll('[data-copy]')) setText(item, tr(item.dataset.copy));
     $('gameLanguage').textContent = t('中文','EN');
     $('gameLanguage').setAttribute('aria-label',t('Switch to Chinese','切换为英文'));
     $('pickBlock').setAttribute('aria-label', tr('pick'));
     $('speed').setAttribute('aria-label', t('Toggle double speed','切换两倍速'));
     $('battleMap').setAttribute('aria-label', t('Burnside campus battlefield; select a block to build','Burnside 校园战场；选择 Block 建塔'));
+    $('map').setAttribute('aria-label', inDefense() ? tr('board') + ' · ' + tr('title') : t('Campus navigation map','校园导航地图'));
+    $('mapLayers').setAttribute('aria-label', inDefense() ? tr('title') : t('Routes drawn along the marked walkways','沿已标记步道绘制的路线'));
+    $('turnLeft').setAttribute('aria-label',t('Rotate model left','向左旋转炮台'));
+    $('turnRight').setAttribute('aria-label',t('Rotate model right','向右旋转炮台'));
     for (const button of $('towerShop').querySelectorAll('[data-tower]')) {
       const type = button.dataset.tower;
       button.setAttribute('aria-label', tr(type) + ' · ' + tr(type + 'Desc') + ' · ' + game.towers[type].cost);
     }
     $('pickBlock').replaceChildren(...game.pads.map(p => new Option(padName(p,true), p.id)));
+    setModel(modelType, modelAngle);
     render();
   }
-  $('gameLanguage').addEventListener('click', () => {
-    locale = 1 - locale;
-    const url = new URL(location.href);
-    if (locale) url.searchParams.set('lang','zh'); else url.searchParams.delete('lang');
-    history.replaceState(null,'',url);
-    translate();
-  });
-  const map = $('battleMap');
-  function fitMap() {
-    const {width,height} = map.getBoundingClientRect();
-    const w = Math.max(765, Math.min(1536, 870 * width / Math.max(1,height)));
-    map.setAttribute('viewBox', (717 - w / 2) + ' 66 ' + w + ' 870');
+
+  let modelType = 'pulse', modelAngle = 2, modelDrag = null;
+  const stage = $('modelStage').parentElement;
+  function setModel(type, angle = 2) {
+    modelType = type;
+    modelAngle = wrapAngle(angle);
+    $('modelStage').dataset.model = type;
+    thumbAngle($('modelStage'), modelAngle);
+    setText($('modelTitle'), tr(type));
+    $('modelFile').href = mesh(type, 'glb');
+    for (const button of $('modelTypes').querySelectorAll('[data-inspect]')) button.setAttribute('aria-pressed', String(button.dataset.inspect === type));
   }
+  $('inspectModels').addEventListener('click', () => {
+    pause();
+    setModel(s.units.get(selected)?.type || modelType);
+    $('modelDialog').showModal();
+  });
+  for (const button of $('modelTypes').querySelectorAll('[data-inspect]')) {
+    button.addEventListener('click', () => setModel(button.dataset.inspect));
+  }
+  $('turnLeft').addEventListener('click', () => setModel(modelType, modelAngle - 1));
+  $('turnRight').addEventListener('click', () => setModel(modelType, modelAngle + 1));
+  stage.addEventListener('pointerdown', event => {
+    if (!event.isPrimary || event.button !== 0) return;
+    modelDrag = {id:event.pointerId, x:event.clientX, angle:modelAngle};
+    stage.setPointerCapture(event.pointerId);
+  });
+  stage.addEventListener('pointermove', event => {
+    if (modelDrag?.id === event.pointerId) setModel(modelType, modelDrag.angle + Math.round((event.clientX-modelDrag.x)/16));
+  });
+  stage.addEventListener('lostpointercapture', () => { modelDrag = null; });
+
+  $('gameLanguage').addEventListener('click', () => {
+    $('language').click();
+    const url = new URL(location.href);
+    if (lang === 'zh') url.searchParams.set('lang','zh'); else url.searchParams.delete('lang');
+    history.replaceState(null,'',url);
+  });
+  const map = $('map');
+  function fitMap() {
+    if (!inDefense()) return;
+    const {clientWidth:w,clientHeight:h} = map;
+    if (!w || !h) return;
+    const scale = Math.min(w/735, h/875);
+    $('world').style.transform = 'translate(' + (w/2) + 'px,' + (h/2) + 'px) scale(' + scale + ') translate(-709px,-500px)';
+  }
+  function showMode(next, {push = false, focus = false} = {}) {
+    const active = inDefense();
+    if (active === next) return;
+    if (next) {
+      playing = false;
+      velocity = 0;
+      selectingPosition = false;
+      if (choosingRoad()) cancelRoadMode();
+      closeToolPanel();
+      update();
+    } else {
+      pause();
+      for (const id of ['modelDialog','helpDialog','resetDialog']) if ($(id).open) $(id).close();
+    }
+    $('app').classList.toggle('defense-mode', next);
+    if (push) {
+      const url = new URL(location.href);
+      if (next) url.searchParams.set('mode','defense'); else url.searchParams.delete('mode');
+      if (lang === 'zh') url.searchParams.set('lang','zh'); else url.searchParams.delete('lang');
+      history.pushState(null,'',url);
+    }
+    translate();
+    if (next) fitMap(); else update(.12);
+    if (focus) {
+      window.scrollTo(0,0);
+      $(next ? 'defenseTitle' : 'defenseLink').focus({preventScroll:true});
+    }
+  }
+  $('defenseLink').addEventListener('click', event => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    event.preventDefault();
+    showMode(true,{push:true,focus:true});
+  });
+  $('backToMap').addEventListener('click', () => showMode(false,{push:true,focus:true}));
+  const urlMode = () => new URLSearchParams(location.search).get('mode') === 'defense';
+  window.addEventListener('popstate', () => showMode(urlMode(),{focus:true}));
   new ResizeObserver(fitMap).observe(map);
+  window.DefenseUI = {translate};
   translate();
-  fitMap();
+  showMode(urlMode());
 })();

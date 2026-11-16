@@ -7,8 +7,11 @@ const html=fs.readFileSync(path.join(__dirname,'../site/index.html'),'utf8');
 const ids=new Set([...html.matchAll(/id="([^"]+)"/g)].map(x=>x[1]));
 const local=new Map(),elements={},events={};
 class FakeElement{
-  constructor(){this.value='';this.textContent='';this.hidden=false;this.disabled=false;this.style={};this.attrs={};this.children=[];this.clientWidth=390;this.clientHeight=844;this.classes=new Set();this.classList={add:k=>this.classes.add(k),remove:k=>this.classes.delete(k),contains:k=>this.classes.has(k),toggle:(k,force)=>{const on=force??!this.classes.has(k);on?this.classes.add(k):this.classes.delete(k);return on;}};}
-  setAttribute(k,v){this.attrs[k]=String(v)}getAttribute(k){return this.attrs[k]}
+  constructor(){this.value='';this.textContent='';this.hidden=false;this.disabled=false;this.style={setProperty:(k,v)=>{this.style[k]=String(v)}};this.attrs={};this.dataset={};this.handlers={};this.children=[];this.clientWidth=390;this.clientHeight=844;this.classes=new Set();this.classList={add:k=>this.classes.add(k),remove:k=>this.classes.delete(k),contains:k=>this.classes.has(k),toggle:(k,force)=>{const on=force??!this.classes.has(k);on?this.classes.add(k):this.classes.delete(k);return on;}};}
+  setAttribute(k,v){this.attrs[k]=String(v)}getAttribute(k){return this.attrs[k]}removeAttribute(k){delete this.attrs[k]}
+  addEventListener(k,f){(this.handlers[k]??=[]).push(f)}
+  fire(k,options={}){for(const fn of this.handlers[k]??[]) fn({button:0,preventDefault(){},stopPropagation(){},target:this,...options});}
+  querySelectorAll(selector){return this.queries?.[selector]??[]}
   replaceChildren(...items){this.children=items;if(items.length&&items[0].value!==undefined)this.value=items[0].value}
   append(...items){this.children.push(...items)}add(option){this.children.push(option)}
   getBoundingClientRect(){return {left:0,top:0,width:390,height:844}}setPointerCapture(){}focus(){}
@@ -16,15 +19,56 @@ class FakeElement{
 const el=id=>{assert.ok(ids.has(id),'Missing HTML ID: '+id);return elements[id] ||= new FakeElement();};
 const tabs=['search','notices','timetable','roads','mapstyle'].map(tab=>{const button=new FakeElement();button.dataset={tab};return button;});
 const document={getElementById:el,createElement:()=>new FakeElement(),createElementNS:()=>new FakeElement(),querySelectorAll:selector=>selector==='.tool-tabs button'?tabs:[],querySelector:selector=>tabs.find(button=>selector.includes('data-tab="'+button.dataset.tab+'"'))||null,body:new FakeElement(),documentElement:{lang:'en'}};
+const gameButtons=t=>['pulse','frost','burst'].map(type=>Object.assign(new FakeElement(),{dataset:{[t]:type}}));
+el('towerShop').queries={'[data-tower]':gameButtons('tower')};
+el('modelTypes').queries={'[data-inspect]':gameButtons('inspect')};
+el('modelStage').parentElement=new FakeElement();
+document.addEventListener=()=>{};
 const window={addEventListener:(event,handler)=>(events[event]??=[]).push(handler)};
 for(const id of ['toolPanel','schedulePeek','timetableTab','roadsTab','mapstyleTab','reportForm','manualStatus','progressWrap'])el(id).hidden=true;
 const browser=vm.createContext({document,window,Date,Intl,URL,URLSearchParams,Option:function(label,value){this.label=label;this.value=value},
   localStorage:{getItem:k=>local.get(k)||null,setItem:(k,v)=>local.set(k,v)},
-  location:{href:'https://example.test/',search:''},history:{replaceState(){}},requestAnimationFrame(){},setInterval(){}});
-for(const file of ['calendar.js','campus.js','app.js','features.js']){
+  location:{href:'https://example.test/',search:''},history:{replaceState(){},pushState(){}},
+  matchMedia:()=>({matches:false}),ResizeObserver:class{observe(){}},requestAnimationFrame(){return 1},cancelAnimationFrame(){},setInterval(){}});
+for(const file of ['calendar.js','campus.js','app.js','features.js','defense-engine.js','campus-defense.js']){
   vm.runInContext(fs.readFileSync(path.join(dist,file),'utf8'),browser,{filename:file});
   if(file==='calendar.js')browser.CampusCalendar=window.CampusCalendar;
 }
+// Game actions and navigation share a map but keep their own state.
+assert.ok(!html.includes('data-nav'),'Navigation surfaces must remain on the page');
+assert.equal(ids.size,[...html.matchAll(/\bid="([^"]+)"/g)].length,'Every control ID must be unique');
+assert.match(html, /id="battleMap"[^>]+aria-hidden="true"/,'Navigation starts with no game actions');
+const beforeGame=el('world').style.transform;
+el('defenseLink').fire('click');
+assert.ok(el('app').classList.contains('defense-mode'));
+assert.equal(el('battleMap').getAttribute('aria-hidden'),'false');
+assert.equal(el('world').style.transform,beforeGame,'Opening the game must not replace the navigation camera');
+el('plus').onclick();
+assert.notEqual(el('world').style.transform,beforeGame,'Map zoom works with game open');
+const aPad=el('blockMarkers').children[0];
+aPad.fire('click');
+assert.equal(el('pickBlock').value,'a');
+el('towerShop').queries['[data-tower]'][0].fire('click');
+assert.equal(el('credits').textContent,180);
+el('launch').fire('click');
+assert.equal(el('launch').textContent,'Pause');
+el('searchRoute').onclick();
+assert.equal(el('toolPanel').hidden,false,'Search stays usable during a wave');
+assert.equal(el('defenseDetails').hidden,true,'Search minimizes the game drawer');
+el('setPosition').onclick();
+const padB=el('blockMarkers').children[1];
+padB.fire('click');
+assert.equal(el('pickBlock').value,'a','Start-pin mode takes priority over building');
+el('setPosition').onclick();
+const savedDestination=el('to').value;
+el('backToMap').fire('click');
+assert.ok(!el('app').classList.contains('defense-mode'));
+assert.equal(el('to').value,savedDestination);
+assert.equal(el('launch').textContent,'Resume','Hiding the game pauses a wave');
+el('defenseLink').fire('click');
+assert.equal(el('credits').textContent,180,'Opening the game again preserves the tower');
+el('backToMap').fire('click');
+el('overview').onclick();
 assert.equal(el('toolsButton').textContent,'Tools');
 el('toolsButton').onclick();assert.equal(el('toolPanel').hidden,false);
 el('searchInput').value='C15';el('searchInput').oninput();

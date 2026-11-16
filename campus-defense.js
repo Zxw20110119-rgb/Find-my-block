@@ -7,7 +7,7 @@
     return el;
   };
   const copy = {
-    back:['← Navigation','← 返回导航'], eyebrow:['FIND MY BLOCK / GAME MODE','FIND MY BLOCK / 游戏模式'],
+    hideGame:['Hide','隐藏'], minimize:['Minimize','收起'], expand:['Expand','展开'], gameOverview:['View all blocks','查看全部教学楼'],
     title:['Campus Defense','校园塔防'], intro:['Build towers on the school blocks. Stop the bots before they reach the Library.','在各个 Block 建塔，阻止机器人抵达图书馆。'],
     how:['How to play','怎么玩'], credits:['Credits','点数'], integrity:['Library health','图书馆生命'], wave:['Wave','波次'], best:['Best waves cleared','最高通关波数'],
     board:['Campus map','校园地图'], site:['Build site','建塔位置'], lane:['Bot path this wave','本波路线'], library:['Library','图书馆'],
@@ -31,7 +31,10 @@
   let s = game.state(), selected = 'e', preview = null, paused = false, last = 0, frame = 0;
   const padElements = new Map(), laneElements = new Map(), gates = new Map(), botElements = new Map();
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  const compact = matchMedia('(max-width: 850px)');
+  const deck = $('defenseDeck');
+  let minimized = false;
+  const mapIsPicking = () => selectingPosition || choosingRoad();
+  const campusBounds = [[365,85],[1006,930]];
   const tile = 176, frameCount = 12;
   const wrapAngle = angle => (angle % frameCount + frameCount) % frameCount;
   const angleFor = (dx,dy) => wrapAngle(Math.round(Math.atan2(dx,-dy) * frameCount / (2 * Math.PI)));
@@ -80,6 +83,7 @@
     letter.textContent = pad.label;
     badge.append(svg('circle', {cx:23, cy:19, r:11, class:'level-bg'}), level);
     el.append(title, svg('rect',{x:-30,y:-32,width:60,height:61,rx:14,fill:'transparent'}),svg('rect',{x:-23,y:-20,width:46,height:40,rx:11,class:'tile'}),letter,turret,badge);
+    el.addEventListener('pointerdown', event => { if (!mapIsPicking()) event.stopPropagation(); });
     el.addEventListener('click', () => selectPad(pad.id, true));
     el.addEventListener('keydown', event => {
       if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectPad(pad.id, true); }
@@ -89,17 +93,18 @@
   }
   function updateRange() {
     const p = game.pads.find(pad => pad.id === selected), unit = s.units.get(selected);
-    const radius = unit ? game.stats(unit.type, unit.level).range : preview ? game.towers[preview].range : 0;
+    const radius = minimized ? 0 : unit ? game.stats(unit.type, unit.level).range : preview ? game.towers[preview].range : 0;
     $('towerRange').replaceChildren(...(radius ? [svg('circle', {cx:p.x, cy:p.y, r:radius, class:'range-ring'})] : []));
   }
   function selectPad(id, fromMap = false) {
-    if (!padElements.has(id)) return;
+    if (!padElements.has(id) || (fromMap && mapIsPicking())) return;
     selected = id;
     preview = null;
     render();
-    if (fromMap && compact.matches) $('defenseWorkshop').scrollIntoView({block:'nearest', behavior:reduced.matches ? 'instant' : 'smooth'});
+    if (fromMap) { closeToolPanel(); setMinimized(false); }
   }
   function updateBoard() {
+    deck.classList.toggle('wave-running', s.status === 'active' && !paused);
     const activeLanes = new Set(game.waves[Math.max(0, Math.min(game.MAX_WAVES - 1, s.wave - (s.status === 'ready' ? 0 : 1)))][3]);
     const openGates = new Set([...activeLanes].map(id => game.routes[id].points[0].join('|')));
     for (const [id, line] of laneElements) line.classList.toggle('active', activeLanes.has(id));
@@ -249,6 +254,7 @@
     if (s.status === 'active' && !paused) { pause(); return; }
     if (s.status === 'active') paused = false;
     else if (!game.start(s)) return;
+    if (matchMedia('(max-width: 760px)').matches) setMinimized(true);
     render(); runLoop();
   });
   $('speed').addEventListener('click', () => { s.speed = s.speed === 1 ? 2 : 1; render(); });
@@ -261,7 +267,7 @@
     if ($('resetDialog').returnValue === 'restart') reset();
     $('resetDialog').returnValue = '';
   });
-  for (const id of ['openHelp','mobileHelp']) $(id).addEventListener('click', () => { pause(); $('helpDialog').showModal(); });
+  $('openHelp').addEventListener('click', () => { pause(); $('helpDialog').showModal(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
   for (const button of $('towerShop').querySelectorAll('[data-tower]')) {
     const type = button.dataset.tower;
@@ -293,15 +299,10 @@
   });
   function translate() {
     locale = lang === 'zh' ? 1 : 0;
-    document.title = inDefense() ? tr('title') + ' · Find My Block' : 'Find My Block · Campus Navigation';
     for (const item of document.querySelectorAll('[data-copy]')) setText(item, tr(item.dataset.copy));
-    $('gameLanguage').textContent = t('中文','EN');
-    $('gameLanguage').setAttribute('aria-label',t('Switch to Chinese','切换为英文'));
     $('pickBlock').setAttribute('aria-label', tr('pick'));
     $('speed').setAttribute('aria-label', t('Toggle double speed','切换两倍速'));
     $('battleMap').setAttribute('aria-label', t('Burnside campus battlefield; select a block to build','Burnside 校园战场；选择 Block 建塔'));
-    $('map').setAttribute('aria-label', inDefense() ? tr('board') + ' · ' + tr('title') : t('Campus navigation map','校园导航地图'));
-    $('mapLayers').setAttribute('aria-label', inDefense() ? tr('title') : t('Routes drawn along the marked walkways','沿已标记步道绘制的路线'));
     $('turnLeft').setAttribute('aria-label',t('Rotate model left','向左旋转炮台'));
     $('turnRight').setAttribute('aria-label',t('Rotate model right','向右旋转炮台'));
     for (const button of $('towerShop').querySelectorAll('[data-tower]')) {
@@ -311,6 +312,7 @@
     $('pickBlock').replaceChildren(...game.pads.map(p => new Option(padName(p,true), p.id)));
     setModel(modelType, modelAngle);
     render();
+    setMinimized(minimized);
   }
 
   let modelType = 'pulse', modelAngle = 2, modelDrag = null;
@@ -344,58 +346,63 @@
   });
   stage.addEventListener('lostpointercapture', () => { modelDrag = null; });
 
-  $('gameLanguage').addEventListener('click', () => {
-    $('language').click();
-    const url = new URL(location.href);
-    if (lang === 'zh') url.searchParams.set('lang','zh'); else url.searchParams.delete('lang');
-    history.replaceState(null,'',url);
-  });
-  const map = $('map');
-  function fitMap() {
-    if (!inDefense()) return;
-    const {clientWidth:w,clientHeight:h} = map;
-    if (!w || !h) return;
-    const scale = Math.min(w/735, h/875);
-    $('world').style.transform = 'translate(' + (w/2) + 'px,' + (h/2) + 'px) scale(' + scale + ') translate(-709px,-500px)';
+  function setMinimized(next) {
+    minimized = next;
+    deck.classList.toggle('def-minimized', next);
+    $('defenseDetails').hidden = next;
+    $('defenseMinimize').setAttribute('aria-expanded', String(!next));
+    setText($('defenseMinimize'), tr(next ? 'expand' : 'minimize'));
+    updateRange();
   }
-  function showMode(next, {push = false, focus = false} = {}) {
-    const active = inDefense();
-    if (active === next) return;
-    if (next) {
-      playing = false;
-      velocity = 0;
-      selectingPosition = false;
-      if (choosingRoad()) cancelRoadMode();
-      closeToolPanel();
-      update();
-    } else {
+  $('defenseMinimize').addEventListener('click', () => setMinimized(!minimized));
+  $('defenseOverview').addEventListener('click', () => {
+    if (mapIsPicking()) return;
+    if (playing) {
+      playing = false; velocity = 0;
+    }
+    follow = false; pan = [0,0]; zoom = 1; overviewExtra = campusBounds;
+    update(.12);
+    setMinimized(true);
+  });
+  const routeCard = $('bottomCard');
+  const reposition = () => {
+    $('app').style.setProperty('--def-route-height', Math.ceil(routeCard.getBoundingClientRect().height) + 'px');
+  };
+  new ResizeObserver(reposition).observe(routeCard);
+
+  function showOverlay(next, {push = false, focus = false} = {}) {
+    if (inDefense() === next) return;
+    if (!next) {
       pause();
       for (const id of ['modelDialog','helpDialog','resetDialog']) if ($(id).open) $(id).close();
     }
     $('app').classList.toggle('defense-mode', next);
+    $('defenseLink').setAttribute('aria-expanded', String(next));
+    $('battleMap').setAttribute('aria-hidden', String(!next));
     if (push) {
       const url = new URL(location.href);
       if (next) url.searchParams.set('mode','defense'); else url.searchParams.delete('mode');
       if (lang === 'zh') url.searchParams.set('lang','zh'); else url.searchParams.delete('lang');
       history.pushState(null,'',url);
     }
-    translate();
-    if (next) fitMap(); else update(.12);
-    if (focus) {
-      window.scrollTo(0,0);
-      $(next ? 'defenseTitle' : 'defenseLink').focus({preventScroll:true});
+    if (next) {
+      reposition();
+      setMinimized(false);
+    } else if (overviewExtra === campusBounds) {
+      overviewExtra = [];
+      update(.12);
     }
+    if (focus) $(next ? 'defenseMinimize' : 'defenseLink').focus({preventScroll:true});
   }
   $('defenseLink').addEventListener('click', event => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
     event.preventDefault();
-    showMode(true,{push:true,focus:true});
+    showOverlay(!inDefense(),{push:true,focus:true});
   });
-  $('backToMap').addEventListener('click', () => showMode(false,{push:true,focus:true}));
+  $('backToMap').addEventListener('click', () => showOverlay(false,{push:true,focus:true}));
   const urlMode = () => new URLSearchParams(location.search).get('mode') === 'defense';
-  window.addEventListener('popstate', () => showMode(urlMode(),{focus:true}));
-  new ResizeObserver(fitMap).observe(map);
-  window.DefenseUI = {translate};
+  window.addEventListener('popstate', () => showOverlay(urlMode()));
+  window.DefenseUI = {translate, minimize() { if (inDefense()) setMinimized(true); }};
   translate();
-  showMode(urlMode());
+  showOverlay(urlMode());
 })();

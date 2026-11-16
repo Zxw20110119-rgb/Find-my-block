@@ -84,7 +84,7 @@ function syncClassRoute(event,events){
   if(!event){lastAutoClassKey="";return;}
   const context=classRouteContext(event,events);
   const key=JSON.stringify([event.id,context.previous?.id,context.from,context.to]);
-  if(inDefense()||!context.to||key===lastAutoClassKey||selectingPosition||roadMode||started||$("noticeDialog").open)return;
+  if(!context.to||key===lastAutoClassKey||selectingPosition||roadMode||started||$("noticeDialog").open)return;
   if(routeToClass(event,events))lastAutoClassKey=key;
 }
 function updatePanelControls(){
@@ -94,6 +94,7 @@ function updatePanelControls(){
 }
 function closeToolPanel(){$("toolPanel").hidden=true;updatePanelControls();}
 function openToolPanel(tab){
+  window.DefenseUI?.minimize();
   const wasChoosing=selectingPosition||!!roadMode;
   selectingPosition=false;if(roadMode)cancelRoadMode();
   if(wasChoosing)update(.12);

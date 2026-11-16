@@ -122,3 +122,5 @@ body:is(.choosing-position,.choosing-road) #battleMap{opacity:.55}
 #app[data-tower-finish=arctic] :is(.unit-sprite,.tower-model){filter:saturate(.3) brightness(1.2)}
 .tower-armor{pointer-events:none}
 .def-tower:focus-visible,.def-finish select:focus-visible{outline:3px solid #1a73e8;outline-offset:2px}
+
+.def-model-types{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.enemy-model{pointer-events:none}.def-shop{max-height:200px;overflow:auto}.def-tower .def-thumb{width:49px}

@@ -47,12 +47,16 @@ const finishWave = s => {
   assert.notEqual(s.status,'active','Wave must terminate');
 };
 
-test('a mixed defense can clear all eight waves with an ordinary credit budget', () => {
+test('a mixed defense can clear all twenty waves with an ordinary credit budget', () => {
   const s = g.state();
   const builds = [[['e','pulse'],['b','burst']], [['x','pulse']], [['d','burst'],['a','frost']], [['k','frost'],['g','pulse']], [['c','burst']], [['m','pulse'],['n','burst']], [['l','pulse']], [['h','burst']]];
   for (let i=0; i<g.MAX_WAVES; i++) {
-    for (const [pad,tower] of builds[i]) assert.ok(g.build(s,pad,tower), 'Afford ' + pad + ' at wave ' + (i+1));
+    for (const [pad,tower] of (builds[i]||[])) assert.ok(g.build(s,pad,tower), 'Afford ' + pad + ' at wave ' + (i+1));
     if (i>=2) g.upgrade(s,i%2 ? 'd' : 'b');
+    if(i>=8){
+      for(const [id,type] of [['rakipaoa','sniper'],['pukehinau','tesla'],['k-east','sniper'],['d-east','venom']])if(!s.units.has(id))g.build(s,id,type);
+      for(const [id] of s.units)g.upgrade(s,id);
+    }
     assert.ok(g.start(s));
     finishWave(s);
     assert.equal(s.cleared,i+1);
@@ -73,4 +77,20 @@ test('undefended bots drain the Library and end the run', () => {
   assert.equal(s.status,'lost');
   assert.equal(s.integrity,0);
   assert.equal(g.build(s,'d','burst'),false);
+});
+
+test('new towers apply chain damage and persistent poison',()=>{
+  for(const type of ['sniper','tesla','venom']){
+    const s=g.state();assert.ok(g.build(s,'b',type));assert.ok(g.start(s));
+    const p=g.pads.find(p=>p.id==='b'),route=g.routes.west;
+    const point=g.position(route,route.length-110);
+    const near=g.pads.find(p=>Math.hypot(p.x-point[0],p.y-point[1])<g.towers[type].range);
+    s.units.clear();s.units.set(near.id,{type,level:1,cooldown:0,spent:g.towers[type].cost});
+    s.clock=100;
+    s.enemies=[0,1,2,3].map(id=>({id,type:'tank',route,x:point[0],y:point[1],hp:1000,maxHp:1000,distance:route.length-110,slowedUntil:0}));
+    g.advance(s,.01);
+    assert.ok(s.effects.some(f=>f.type===type));
+    if(type==='tesla')assert.equal(s.enemies.filter(e=>e.hp<1000).length,3);
+    if(type==='venom'){assert.ok(s.enemies[0].poisonUntil>s.time);const hp=s.enemies[0].hp;g.advance(s,.1);assert.ok(s.enemies[0].hp<hp);}
+  }
 });

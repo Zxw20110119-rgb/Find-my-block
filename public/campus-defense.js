@@ -16,11 +16,31 @@
     credit:['Burnside High School campus map','Burnside 高中校园地图'], local:['Saved on this device','保存在此设备'],
     helpTitle:['How to play','玩法说明'], step1:['Tap a letter on the map or choose a block from the menu. Pick a tower to build it. Hover or focus a tower option to preview its range.','点击地图上的字母或从菜单选 Block，再选择要建的塔。悬停或聚焦塔的选项可预览射程。'],
     step2:['Launch a wave. Towers fire automatically. The dashed lines show the paths bots will take, and each bot that reaches the Library costs health.','开始波次后，防御塔会自动攻击。虚线是机器人的路线，机器人到达图书馆会扣生命。'],
-    step3:['Spend earned credits to expand and upgrade. Protect the Library through all eight waves.','用赚到的点数建新塔或升级，守住图书馆八波即可获胜。'],
+    step3:['Spend earned credits to expand and upgrade. Protect the Library through all twenty waves.','用赚到的点数建新塔或升级，守住图书馆二十波即可获胜。'],
     gotIt:['Got it','知道了'], resetTitle:['Restart this game?','重新开始这局？'], resetDetail:['Your current run will be reset. Your best score stays saved.','本局进度会重置，最高纪录会保留。'], cancel:['Cancel','取消'],
     inspect:['Inspect models','查看炮台模型'], modelLab:['TOWER LAB','炮台工坊'], close:['Close','关闭'], dragModel:['Drag to rotate','拖动旋转'], download:['Download 3D model (.glb)','下载 3D 模型 (.glb)'],
     ready:['BUILD PHASE','建塔阶段'], active:['WAVE INCOMING','机器人来袭'], paused:['PAUSED','已暂停'], won:['CAMPUS SECURED','防守成功'], lost:['LIBRARY OVERRUN','防守失败'],
   };
+  Object.assign(copy,{
+    sniper:['Sniper','狙击塔'],sniperDesc:['Long range, heavy single hit','超远射程，单体重击'],
+    tesla:['Tesla','电弧塔'],teslaDesc:['Lightning chains to 3 bots','闪电连锁攻击三个目标'],
+    venom:['Venom','毒液塔'],venomDesc:['Area poison over time','范围持续毒伤']
+  });
+  for(const type of ['sniper','tesla','venom']){
+    const button=document.createElement('button');button.type='button';button.className='def-tower';button.dataset.tower=type;
+    const thumb=document.createElement('span');thumb.className='def-thumb tower-model';thumb.dataset.model=type;thumb.setAttribute('aria-hidden','true');
+    const name=document.createElement('b');name.dataset.copy=type;
+    const price=document.createElement('span');price.className='def-price';price.textContent=game.towers[type].cost;
+    button.append(thumb,name,price);$('towerShop').append(button);
+    const inspect=document.createElement('button');inspect.type='button';inspect.className='def-quiet';inspect.dataset.inspect=type;inspect.dataset.copy=type;$('modelTypes').append(inspect);
+  }
+  function vectorThumb(el,type){
+    const vector=['sniper','tesla','venom'].includes(type);
+    el.style.backgroundImage=vector?'url("'+DefenseArt.model(type)+'")':'';
+    el.style.backgroundSize=vector?'contain':'';
+    el.style.backgroundPosition=vector?'center':'';
+  }
+  for(const el of document.querySelectorAll('.tower-model'))vectorThumb(el,el.dataset.model);
   let locale = lang === 'zh' ? 1 : 0;
   const tr = key => copy[key][locale];
   const setText = (el, value) => { if (el.textContent !== String(value)) el.textContent = value; };
@@ -58,6 +78,7 @@
   const angleFor = (dx,dy) => wrapAngle(Math.round(Math.atan2(dx,-dy) * frameCount / (2 * Math.PI)));
   const mesh = (type, ext) => 'assets/towers/' + type + '.' + ext;
   function spriteAngle(sprite, angle) {
+    if(sprite.dataset.vector==='true')return;
     if (sprite.dataset.angle === String(angle)) return;
     sprite.dataset.angle = angle;
     sprite.setAttribute('viewBox', (angle % 4 * tile) + ' ' + (Math.floor(angle / 4) * tile) + ' ' + tile + ' ' + tile);
@@ -140,7 +161,13 @@
       badge.style.display = turret.style.display = unit ? '' : 'none';
       if (pad.model !== (unit?.type ?? null)) {
         pad.model = unit?.type ?? null;
-        if (unit) { atlas.setAttribute('href', mesh(unit.type, 'webp')); spriteAngle(sprite, 2); }
+        if (unit) {
+          const vector=['sniper','tesla','venom'].includes(unit.type);
+          sprite.dataset.vector=String(vector);delete sprite.dataset.angle;
+          atlas.setAttribute('width',vector?176:704);atlas.setAttribute('height',vector?176:528);
+          atlas.setAttribute('href',vector?DefenseArt.model(unit.type):mesh(unit.type,'webp'));
+          if(vector)sprite.setAttribute('viewBox','0 0 176 176');else spriteAngle(sprite,2);
+        }
         else atlas.removeAttribute('href');
       }
       if (unit) {
@@ -169,6 +196,7 @@
     if (!unit) return;
     const tower = game.stats(unit.type, unit.level), cost = game.upgradeCost(unit);
     $('unitIcon').dataset.model = unit.type;
+    vectorThumb($('unitIcon'),unit.type);
     $('unitName').textContent = tr(unit.type) + ' · ' + t('Level ', '等级 ') + unit.level;
     $('unitStats').textContent = t(tower.damage + ' damage per shot', '每发伤害 ' + tower.damage);
     $('upgrade').textContent = cost ? t('Upgrade', '升级') + ' · ⬡ ' + cost : t('Max level', '满级');
@@ -196,7 +224,7 @@
         t((s.enemies.length + s.quota - s.spawned) + ' bots left this wave.', '本波还剩 ' + (s.enemies.length + s.quota - s.spawned) + ' 个机器人。');
     } else if (game.ended(s)) {
       launch.textContent = t('Play again', '再玩一次');
-      $('status').textContent = s.status === 'won' ? t('The Library held! You cleared all eight waves.', '图书馆守住了！你已通过全部八波。') : t('The Library fell. You cleared ' + s.cleared + ' of 8 waves.', '图书馆失守。你守住了 ' + s.cleared + ' / 8 波。');
+      $('status').textContent = s.status === 'won' ? t('The Library held! You cleared all twenty waves.', '图书馆守住了！你已通过全部二十波。') : t('The Library fell. You cleared ' + s.cleared + ' of '+game.MAX_WAVES+' waves.', '图书馆失守。你守住了 ' + s.cleared + ' / '+game.MAX_WAVES+' 波。');
     } else {
       launch.textContent = t('Launch wave ', '开始第 ') + (s.wave + 1) + t('', ' 波');
       $('status').textContent = !s.units.size ? t('Build a tower on a block to launch the next wave.', '在 Block 上建一座塔后，就能开始下一波。') :
@@ -212,20 +240,18 @@
     for (const bot of s.enemies) {
       onMap.add(bot.id);
       if (!botElements.has(bot.id)) {
-        const el = svg('g'), r = bot.type === 'boss' ? 15 : bot.type === 'tank' ? 12 : 9;
-        const shape = bot.type === 'runner' ? svg('path',{d:'M0 -11 10 0 0 11-10 0z'}) : svg('rect',{x:-r,y:-r,width:r*2,height:r*2,rx:bot.type === 'scout' ? 6 : 4});
-        shape.setAttribute('fill', game.foes[bot.type].color);
-        shape.setAttribute('stroke', '#3b201e');
-        shape.setAttribute('stroke-width', '2.5');
-        const hp = svg('rect',{x:-13,y:-r-9,width:26,height:4,rx:2,fill:'#a6ffc0'});
-        el.append(shape,svg('path',{d:'M-4 -1h2m4 0h2',stroke:'#3b201e','stroke-width':3,'stroke-linecap':'round'}),svg('rect',{x:-13,y:-r-9,width:26,height:4,rx:2,fill:'#2c221e'}),hp);
+        const el=svg('g'),r=bot.type==='boss'?27:bot.type==='tank'?18:16;
+        const shape=DefenseArt.monster(svg,bot.type,game.foes[bot.type].color);
+        const hp=svg('rect',{x:-13,y:-r-9,width:26,height:4,rx:2,fill:'#a6ffc0'});
+        el.append(shape,svg('rect',{x:-13,y:-r-9,width:26,height:4,rx:2,fill:'#2c221e'}),hp);
         $('bots').append(el);
         botElements.set(bot.id,{el,hp,shape});
       }
       const {el,hp,shape} = botElements.get(bot.id);
       el.setAttribute('transform','translate(' + bot.x.toFixed(1) + ' ' + bot.y.toFixed(1) + ')');
       hp.setAttribute('width', (26 * bot.hp / bot.maxHp).toFixed(1));
-      shape.setAttribute('stroke', bot.slowedUntil > s.time ? '#ccedff' : '#3b201e');
+      shape.style.filter=bot.slowedUntil>s.time?'drop-shadow(0 0 3px #91d4ff)':bot.poisonUntil>s.time?'drop-shadow(0 0 3px #b5ec66)':'';
+      if(!reduced.matches)shape.setAttribute('transform','translate(0 '+(Math.sin(s.time*(bot.type==='runner'?22:10)+bot.id)*1.2).toFixed(2)+')');
     }
     for (const [id,{el}] of botElements) if (!onMap.has(id)) { el.remove(); botElements.delete(id); }
     const effects = [];
@@ -349,9 +375,15 @@
     modelType = type;
     modelAngle = wrapAngle(angle);
     $('modelStage').dataset.model = type;
+    vectorThumb($('modelStage'),type);
     thumbAngle($('modelStage'), modelAngle);
     setText($('modelTitle'), tr(type));
-    $('modelFile').href = mesh(type, 'glb');
+    const vector=['sniper','tesla','venom'].includes(type);
+    $('modelFile').href=vector?DefenseArt.model(type):mesh(type,'glb');
+    $('modelFile').setAttribute('download',type+(vector?'.svg':'.glb'));
+    $('modelFile').textContent=vector?t('Download vector model (.svg)','下载矢量模型 (.svg)'):tr('download');
+    $('turnLeft').disabled=$('turnRight').disabled=vector;
+    document.querySelector('[data-copy="dragModel"]').textContent=vector?t('Isometric vector model','等距矢量模型'):tr('dragModel');
     for (const button of $('modelTypes').querySelectorAll('[data-inspect]')) button.setAttribute('aria-pressed', String(button.dataset.inspect === type));
   }
   $('inspectModels').addEventListener('click', () => {
@@ -365,7 +397,7 @@
   $('turnLeft').addEventListener('click', () => setModel(modelType, modelAngle - 1));
   $('turnRight').addEventListener('click', () => setModel(modelType, modelAngle + 1));
   stage.addEventListener('pointerdown', event => {
-    if (!event.isPrimary || event.button !== 0) return;
+    if (!event.isPrimary || event.button !== 0 || ['sniper','tesla','venom'].includes(modelType)) return;
     modelDrag = {id:event.pointerId, x:event.clientX, angle:modelAngle};
     stage.setPointerCapture(event.pointerId);
   });

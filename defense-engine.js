@@ -1,6 +1,6 @@
 /* The battle uses the same walkway graph as the campus navigator. All distances are map pixels. */
 globalThis.CampusDefense = (() => {
-  const MAX_WAVES = 8, MAX_LEVEL = 3, START_CREDITS = 270, START_INTEGRITY = 16;
+  const MAX_WAVES = 20, MAX_LEVEL = 3, START_CREDITS = 270, START_INTEGRITY = 16;
   const base = nodes.q1;
   const pads = [
     ['a','A',648,605], ['b','B',750,515], ['c','C',880,550],
@@ -14,6 +14,11 @@ globalThis.CampusDefense = (() => {
     frost: {cost:115, damage:13, range:134, cooldown:.92, splash:29, slow:1.65, color:'#91d4ff', icon:'✳'},
     burst: {cost:145, damage:36, range:155, cooldown:1.20, splash:48, slow:0, color:'#ffc775', icon:'✹'},
   };
+  Object.assign(towers,{
+    sniper:{cost:185,damage:105,range:245,cooldown:2.1,splash:0,slow:0,color:'#f9a9df'},
+    tesla:{cost:170,damage:30,range:132,cooldown:1.05,splash:0,slow:0,chain:3,color:'#bca0ff'},
+    venom:{cost:150,damage:12,range:145,cooldown:1.1,splash:24,slow:0,poison:8,color:'#b5ec66'}
+  });
   const foes = {
     scout: {hp:58, speed:43, reward:11, hit:1, color:'#ff9c78'},
     runner: {hp:43, speed:75, reward:12, hit:1, color:'#f8dc6b'},
@@ -48,6 +53,11 @@ globalThis.CampusDefense = (() => {
     [.64, 27, ['runner','tank','scout','tank'], ['west','east','south','north','gym']],
     [.59, 30, ['tank','runner','boss','scout','runner','tank','scout'], ['north','east','gym','south','west']],
   ];
+  for(let i=9;i<=MAX_WAVES;i++){
+    const mix=i%5===0?['boss','tank','runner','tank','scout','runner']:i%3===0?['tank','runner','runner','boss']:['scout','tank','runner','runner'];
+    waves.push([Math.max(.36,.59-(i-8)*.015),30+(i-8)*2,mix,
+      i<13?['north','east','south']:['west','north','gym','east','south']]);
+  }
   function state() {
     return {
       credits:START_CREDITS, integrity:START_INTEGRITY, wave:0, cleared:0, status:'ready',
@@ -116,6 +126,13 @@ globalThis.CampusDefense = (() => {
       s.clock += cadence;
     }
     for (const e of s.enemies) {
+      if(e.poisonUntil>s.time && e.hp>0){
+        e.hp-=e.poisonDamage*dt;
+        if(e.hp<=0){s.kills++;s.credits+=foes[e.type].reward;}
+      }
+    }
+    s.enemies=s.enemies.filter(e=>e.hp>0);
+    for (const e of s.enemies) {
       e.distance += foes[e.type].speed * dt * (e.slowedUntil > s.time ? .52 : 1);
       [e.x, e.y] = position(e.route, e.distance);
     }
@@ -139,18 +156,21 @@ globalThis.CampusDefense = (() => {
       }
       if (!target) continue;
       unit.cooldown = tower.cooldown;
+      const chained=tower.chain?s.enemies.filter(e=>e!==target&&e.hp>0&&Math.hypot(e.x-target.x,e.y-target.y)<85)
+        .sort((a,b)=>Math.hypot(a.x-target.x,a.y-target.y)-Math.hypot(b.x-target.x,b.y-target.y)).slice(0,tower.chain-1):[];
       for (const e of s.enemies) {
         if (e.hp <= 0) continue;
         const direct = e === target;
-        if (!direct && (!tower.splash || Math.hypot(e.x - target.x, e.y - target.y) > tower.splash)) continue;
+        if (!direct && !chained.includes(e) && (!tower.splash || Math.hypot(e.x - target.x, e.y - target.y) > tower.splash)) continue;
         e.hp -= direct ? tower.damage : Math.ceil(tower.damage * .55);
+        if(tower.poison){e.poisonUntil=s.time+3;e.poisonDamage=tower.poison*(1+.5*(unit.level-1));}
         if (tower.slow) e.slowedUntil = s.time + tower.slow;
         if (e.hp <= 0) {
           s.kills++;
           s.credits += foes[e.type].reward;
         }
       }
-      s.effects.push({id:++s.serial, pad:pad.id, type:unit.type, born:s.time, x:pad.x, y:pad.y, tx:target.x, ty:target.y, color:tower.color, splash:tower.splash, until:s.time + .42});
+      s.effects.push({id:++s.serial, pad:pad.id, type:unit.type, chain:chained.map(e=>({x:e.x,y:e.y})), born:s.time, x:pad.x, y:pad.y, tx:target.x, ty:target.y, color:tower.color, splash:tower.splash, until:s.time + .42});
     }
     s.enemies = s.enemies.filter(e => e.hp > 0);
     s.effects = s.effects.filter(e => e.until > s.time);

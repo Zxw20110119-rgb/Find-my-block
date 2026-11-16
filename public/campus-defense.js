@@ -32,6 +32,24 @@
   const padElements = new Map(), laneElements = new Map(), gates = new Map(), botElements = new Map();
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const deck = $('defenseDeck');
+  let finish = 'original';
+  try { const saved=localStorage.getItem('fmb-tower-finish'); if(DefenseArt.palettes[saved]) finish=saved; } catch {}
+  const finishLabel=document.createElement('label'), finishSelect=document.createElement('select');
+  finishLabel.className='def-finish'; finishSelect.id='towerFinish';
+  const finishText=document.createElement('span');
+  finishLabel.append(finishText,finishSelect);
+  $('defenseWorkshop').append(finishLabel);
+  const towerColor=type=>DefenseArt.palettes[finish][type];
+  function applyFinish(){
+    $('app').dataset.towerFinish=finish;
+    for(const pad of padElements.values()) pad.artKey=null;
+    updateBoard();
+  }
+  finishSelect.addEventListener('change',()=>{
+    finish=finishSelect.value;
+    try {localStorage.setItem('fmb-tower-finish',finish);} catch {}
+    applyFinish(); paint();
+  });
   let minimized = false;
   const mapIsPicking = () => selectingPosition || choosingRoad();
   const campusBounds = [[365,85],[1006,930]];
@@ -125,7 +143,15 @@
         if (unit) { atlas.setAttribute('href', mesh(unit.type, 'webp')); spriteAngle(sprite, 2); }
         else atlas.removeAttribute('href');
       }
-      if (unit) { el.style.setProperty('--tower', game.towers[unit.type].color); setText(level, unit.level); }
+      if (unit) {
+        el.style.setProperty('--tower', towerColor(unit.type)); setText(level, unit.level);
+        const artKey=unit.type+'|'+unit.level+'|'+finish;
+        if(pad.artKey!==artKey){
+          pad.armor?.remove();
+          pad.armor=DefenseArt.armor(svg,unit.type,unit.level,towerColor(unit.type));
+          turret.append(pad.armor); pad.artKey=artKey;
+        }
+      } else {pad.armor?.remove();pad.armor=null;pad.artKey=null;}
     }
     setText(label, tr('library'));
     updateRange();
@@ -206,10 +232,7 @@
     for (const fx of s.effects) {
       const pad = padElements.get(fx.pad);
       if (pad?.model) spriteAngle(pad.sprite, angleFor(fx.tx - fx.x, fx.ty - fx.y));
-      if (reduced.matches) continue;
-      const opacity = Math.min(1, (fx.until - s.time) / .18);
-      effects.push(svg('line', {x1:fx.x, y1:fx.y, x2:fx.tx, y2:fx.ty, stroke:fx.color, 'stroke-width':4, 'stroke-linecap':'round', opacity}));
-      if (fx.splash) effects.push(svg('circle', {cx:fx.tx, cy:fx.ty, r:fx.splash * (1 - opacity * .55), fill:'none', stroke:fx.color, 'stroke-width':2.5, opacity}));
+      effects.push(DefenseArt.shot(svg,fx,s.time,towerColor(fx.type || 'pulse'),reduced.matches));
     }
     $('fx').replaceChildren(...effects);
   }
@@ -310,6 +333,11 @@
       button.setAttribute('aria-label', tr(type) + ' · ' + tr(type + 'Desc') + ' · ' + game.towers[type].cost);
     }
     $('pickBlock').replaceChildren(...game.pads.map(p => new Option(padName(p,true), p.id)));
+    finishText.textContent=t('Tower finish','炮塔涂装');
+    finishSelect.setAttribute('aria-label',t('Tower finish','炮塔涂装'));
+    finishSelect.replaceChildren(new Option(t('Original','原版'),'original'),new Option(t('Neon','霓虹'),'neon'),new Option(t('Arctic','极地'),'arctic'));
+    finishSelect.value=finish;
+    $('app').dataset.towerFinish=finish;
     setModel(modelType, modelAngle);
     render();
     setMinimized(minimized);

@@ -114,3 +114,11 @@ body:is(.choosing-position,.choosing-road) #battleMap{opacity:.55}
  #defenseDeck .def-actions button{min-height:38px}
 }
 @media(prefers-reduced-motion:reduce){.def-progress>div{transition:none}}
+
+/* Finishes affect artwork only; the navigator retains its original colors. */
+.def-finish{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:11px;color:#365849}
+.def-finish select{min-height:34px;max-width:130px;border:1px solid #dce8e1;border-radius:10px;background:#f4f8f5;color:#173c2e;padding:5px 9px}
+#app[data-tower-finish=neon] :is(.unit-sprite,.tower-model){filter:hue-rotate(115deg) saturate(1.3)}
+#app[data-tower-finish=arctic] :is(.unit-sprite,.tower-model){filter:saturate(.3) brightness(1.2)}
+.tower-armor{pointer-events:none}
+.def-tower:focus-visible,.def-finish select:focus-visible{outline:3px solid #1a73e8;outline-offset:2px}

@@ -121,9 +121,17 @@ body:is(.choosing-position,.choosing-road) #battleMap{opacity:.55}
 /* Finishes affect artwork only; the navigator retains its original colors. */
 .def-finish{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:11px;color:#365849}
 .def-finish select{min-height:34px;max-width:130px;border:1px solid #dce8e1;border-radius:10px;background:#f4f8f5;color:#173c2e;padding:5px 9px}
-#app[data-tower-finish=neon] :is(.unit-sprite,.tower-model){filter:hue-rotate(115deg) saturate(1.3)}
-#app[data-tower-finish=arctic] :is(.unit-sprite,.tower-model){filter:saturate(.3) brightness(1.2)}
+#app[data-tower-finish=neon] :is(.unit-sprite,.tower-model:not(.enemy-preview)){filter:hue-rotate(115deg) saturate(1.3)}
+#app[data-tower-finish=arctic] :is(.unit-sprite,.tower-model:not(.enemy-preview)){filter:saturate(.3) brightness(1.2)}
 .tower-armor{pointer-events:none}
 .def-tower:focus-visible,.def-finish select:focus-visible{outline:3px solid #1a73e8;outline-offset:2px}
 
 .def-model-types{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.enemy-model{pointer-events:none}.def-shop{max-height:200px;overflow:auto}.def-tower .def-thumb{width:53px}
+
+.def-model-categories{display:flex;gap:6px;margin-top:9px}
+.def-model-categories .def-quiet{flex:1}
+#enemyTypes{grid-template-columns:repeat(2,minmax(0,1fr))}
+.tower-model.enemy-preview{background-size:400% 200%}
+.enemy-shadow{fill:#1b2537;opacity:.31}
+.enemy-slowed .enemy-model{filter:drop-shadow(0 0 3px #91d4ff)}
+.enemy-poisoned .enemy-shadow{fill:#a2f034;stroke:#d6ff99;stroke-width:2;opacity:.85}

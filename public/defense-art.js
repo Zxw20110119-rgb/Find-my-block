@@ -5,28 +5,6 @@ globalThis.DefenseArt = (() => {
     neon:{pulse:'#ff77d9',frost:'#bfa0ff',burst:'#ff8970',sniper:'#f7a785',tesla:'#8cbaff',venom:'#f59ae9'},
     arctic:{pulse:'#d2fff4',frost:'#e2f5ff',burst:'#f5e6b5',sniper:'#fce2f1',tesla:'#e8e5ff',venom:'#edf6d8'}
   };
-  function monster(svg,type,color){
-    const g=svg('g',{'class':'enemy-model enemy-'+type});
-    const add=(tag,a)=>g.append(svg(tag,a));
-    add('ellipse',{cx:0,cy:10,rx:type==='boss'?21:15,ry:6,fill:'#12332f',opacity:.28});
-    if(type==='tank'||type==='boss'){
-      for(const x of [-17,11]){
-        add('rect',{x,y:-13,width:6,height:29,rx:3,fill:'#243c48',stroke:'#a2b0b5','stroke-width':1});
-        for(let y=-10;y<15;y+=6)add('path',{d:'M'+x+' '+y+'h6',stroke:'#647786','stroke-width':2});
-      }
-    }else{
-      for(const k of [-1,1])add('path',{d:'M'+(k*6)+' -5 '+(k*17)+' -12 M'+(k*7)+' 3 '+(k*18)+' 5 M'+(k*6)+' 9 '+(k*14)+' 16',stroke:'#324d58','stroke-width':3,'stroke-linecap':'round'});
-    }
-    add('path',{d:type==='runner'?'M0-15 10-3 7 10 0 16-7 10-10-3z':'M-11-12 8-15 14-5 12 12 0 17-13 9z',fill:color,stroke:'#263d4a','stroke-width':2});
-    add('path',{d:'M-8-8 6-11 10-4-7 0z',fill:'#ffffff',opacity:.32});
-    add('rect',{x:-8,y:-4,width:16,height:7,rx:3,fill:'#203c49'});
-    add('path',{d:'M-5-1h3m4 0h3',stroke:'#dcffff','stroke-width':2});
-    if(type==='boss'){
-      add('path',{d:'M-12-13-16-24-5-18 0-27 5-18 16-24 12-13z',fill:'#f6d78d',stroke:'#62464d','stroke-width':2});
-      add('circle',{cx:0,cy:9,r:4,fill:'#fff2bf'});
-    }
-    return g;
-  }
   function armor(svg,level,color) {
     const g=svg('g',{'class':'tower-armor','pointer-events':'none'});
     const add=(tag,a)=>g.append(svg(tag,a));
@@ -85,5 +63,5 @@ globalThis.DefenseArt = (() => {
     }
     return g;
   }
-  return {palettes,armor,shot,monster};
+  return {palettes,armor,shot};
 })();

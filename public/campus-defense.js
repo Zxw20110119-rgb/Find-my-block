@@ -18,7 +18,8 @@
     step2:['Launch a wave. Towers fire automatically. The dashed lines show the paths bots will take, and each bot that reaches the Library costs health.','开始波次后，防御塔会自动攻击。虚线是机器人的路线，机器人到达图书馆会扣生命。'],
     step3:['Spend earned credits to expand and upgrade. Protect the Library through all twenty waves.','用赚到的点数建新塔或升级，守住图书馆二十波即可获胜。'],
     gotIt:['Got it','知道了'], resetTitle:['Restart this game?','重新开始这局？'], resetDetail:['Your current run will be reset. Your best score stays saved.','本局进度会重置，最高纪录会保留。'], cancel:['Cancel','取消'],
-    inspect:['Inspect models','查看炮台模型'], modelLab:['TOWER LAB','炮台工坊'], close:['Close','关闭'], dragModel:['Drag to rotate','拖动旋转'], download:['Download 3D model (.glb)','下载 3D 模型 (.glb)'],
+    inspect:['Inspect models','查看模型'], modelLab:['MODEL LAB','模型工坊'], modelTowers:['Towers','炮台'], modelEnemies:['Enemies','怪物'],
+    scout:['Scout Drone','侦察无人机'], runner:['Sprint Crawler','疾跑机械虫'], tank:['Heavy Crawler','履带重装怪'], boss:['Crown Sentinel','冠冕首领'], close:['Close','关闭'], dragModel:['Drag to rotate','拖动旋转'], download:['Download 3D model (.glb)','下载 3D 模型 (.glb)'],
     ready:['BUILD PHASE','建塔阶段'], active:['WAVE INCOMING','机器人来袭'], paused:['PAUSED','已暂停'], won:['CAMPUS SECURED','防守成功'], lost:['LIBRARY OVERRUN','防守失败'],
   };
   Object.assign(copy,{
@@ -66,19 +67,21 @@
   let minimized = false;
   const mapIsPicking = () => selectingPosition || choosingRoad();
   const campusBounds = [[365,85],[1006,930]];
-  const tile = 224, frameCount = 12;
-  const wrapAngle = angle => (angle % frameCount + frameCount) % frameCount;
-  const angleFor = (dx,dy) => wrapAngle(Math.round(Math.atan2(dx,-dy) * frameCount / (2 * Math.PI)));
+  const tile = 224, frameCount = 12, enemyTile = 176, enemyFrames = 8;
+  const enemySize = {scout:42, runner:47, tank:49, boss:64};
+  const wrapAngle = (angle, count = frameCount) => (angle % count + count) % count;
+  const angleFor = (dx,dy,count = frameCount) => wrapAngle(Math.round(Math.atan2(dx,-dy) * count / (2 * Math.PI)),count);
   const mesh = (type, ext) => 'assets/towers/' + type + '.' + ext + '?v=3d2';
-  function spriteAngle(sprite, angle) {
+  const enemyMesh = (type, ext) => 'assets/enemies/' + type + '.' + ext + '?v=1';
+  function spriteAngle(sprite, angle, size = tile) {
     if (sprite.dataset.angle === String(angle)) return;
     sprite.dataset.angle = angle;
-    sprite.setAttribute('viewBox', (angle % 4 * tile) + ' ' + (Math.floor(angle / 4) * tile) + ' ' + tile + ' ' + tile);
+    sprite.setAttribute('viewBox', (angle % 4 * size) + ' ' + (Math.floor(angle / 4) * size) + ' ' + size + ' ' + size);
   }
-  function thumbAngle(thumb, angle) {
+  function thumbAngle(thumb, angle, rows = 3) {
     thumb.dataset.angle = angle;
     thumb.style.setProperty('--frame-x', angle % 4 * 100 / 3 + '%');
-    thumb.style.setProperty('--frame-y', Math.floor(angle / 4) * 50 + '%');
+    thumb.style.setProperty('--frame-y', Math.floor(angle / 4) * 100 / (rows - 1) + '%');
   }
 
   function padName(pad, short = false) {
@@ -227,18 +230,26 @@
     for (const bot of s.enemies) {
       onMap.add(bot.id);
       if (!botElements.has(bot.id)) {
-        const el=svg('g'),r=bot.type==='boss'?27:bot.type==='tank'?18:16;
-        const shape=DefenseArt.monster(svg,bot.type,game.foes[bot.type].color);
-        const hp=svg('rect',{x:-13,y:-r-9,width:26,height:4,rx:2,fill:'#a6ffc0'});
-        el.append(shape,svg('rect',{x:-13,y:-r-9,width:26,height:4,rx:2,fill:'#2c221e'}),hp);
+        const size = enemySize[bot.type], width = bot.type === 'boss' ? 36 : 26, top = -Math.round(size * .63);
+        const el=svg('g',{'data-enemy':bot.type}), shadow=svg('ellipse',{cx:0,cy:5,rx:size*.29,ry:size*.12,class:'enemy-shadow'});
+        const shape=svg('svg',{x:-size/2,y:top,width:size,height:size,class:'enemy-model','aria-hidden':'true'});
+        shape.append(svg('image',{width:enemyTile*4,height:enemyTile*2,href:enemyMesh(bot.type,'webp')}));
+        const health={x:-width/2,y:top-4,width,height:4,rx:2};
+        const hp=svg('rect',{...health,fill:'#a6ffc0'});
+        el.append(shadow,shape,svg('rect',{...health,fill:'#2c221e',stroke:'#fff','stroke-width':.75}),hp);
         $('bots').append(el);
-        botElements.set(bot.id,{el,hp,shape});
+        botElements.set(bot.id,{el,hp,shape,width});
       }
-      const {el,hp,shape} = botElements.get(bot.id);
+      const {el,hp,shape,width} = botElements.get(bot.id);
       el.setAttribute('transform','translate(' + bot.x.toFixed(1) + ' ' + bot.y.toFixed(1) + ')');
-      hp.setAttribute('width', (26 * bot.hp / bot.maxHp).toFixed(1));
-      shape.style.filter=bot.slowedUntil>s.time?'drop-shadow(0 0 3px #91d4ff)':bot.poisonUntil>s.time?'drop-shadow(0 0 3px #b5ec66)':'';
-      if(!reduced.matches)shape.setAttribute('transform','translate(0 '+(Math.sin(s.time*(bot.type==='runner'?22:10)+bot.id)*1.2).toFixed(2)+')');
+      hp.setAttribute('width', (width * bot.hp / bot.maxHp).toFixed(1));
+      el.classList.toggle('enemy-slowed',bot.slowedUntil>s.time);
+      el.classList.toggle('enemy-poisoned',bot.poisonUntil>s.time);
+      const heading = bot.route.segments.find(segment=>segment.end>bot.distance) || bot.route.segments.at(-1);
+      spriteAngle(shape,angleFor(heading.dx,heading.dy,enemyFrames),enemyTile);
+      const stride = bot.type==='runner' ? 20 : bot.type==='scout' ? 7 : 11;
+      const bounce = reduced.matches || bot.type==='tank' ? 0 : Math.sin(bot.distance * stride / 80 + bot.id) * (bot.type==='scout' ? 1.6 : 1);
+      shape.setAttribute('transform','translate(0 '+bounce.toFixed(2)+')');
     }
     for (const [id,{el}] of botElements) if (!onMap.has(id)) { el.remove(); botElements.delete(id); }
     const effects = [];
@@ -339,8 +350,8 @@
     $('pickBlock').setAttribute('aria-label', tr('pick'));
     $('speed').setAttribute('aria-label', t('Toggle double speed','切换两倍速'));
     $('battleMap').setAttribute('aria-label', t('Burnside campus battlefield; select a block to build','Burnside 校园战场；选择 Block 建塔'));
-    $('turnLeft').setAttribute('aria-label',t('Rotate model left','向左旋转炮台'));
-    $('turnRight').setAttribute('aria-label',t('Rotate model right','向右旋转炮台'));
+    $('turnLeft').setAttribute('aria-label',t('Rotate model left','向左旋转模型'));
+    $('turnRight').setAttribute('aria-label',t('Rotate model right','向右旋转模型'));
     for (const button of $('towerShop').querySelectorAll('[data-tower]')) {
       const type = button.dataset.tower;
       button.setAttribute('aria-label', tr(type) + ' · ' + tr(type + 'Desc') + ' · ' + game.towers[type].cost);
@@ -358,22 +369,37 @@
 
   let modelType = 'pulse', modelAngle = 2, modelDrag = null;
   const stage = $('modelStage').parentElement;
+  const towerModels = $('modelTypes').querySelectorAll('[data-inspect]');
+  const enemyModels = $('enemyTypes').querySelectorAll('[data-inspect]');
   function setModel(type, angle = 2) {
+    const isEnemy = Object.hasOwn(enemySize,type), thumb = $('modelStage');
+    modelAngle = wrapAngle(angle,isEnemy ? enemyFrames : frameCount);
+    if (modelType !== type || thumb.dataset.model !== type) {
+      thumb.dataset.model = type;
+      thumb.classList.toggle('enemy-preview',isEnemy);
+      thumb.style.backgroundImage = isEnemy ? 'url("'+enemyMesh(type,'webp')+'")' : '';
+    }
     modelType = type;
-    modelAngle = wrapAngle(angle);
-    $('modelStage').dataset.model = type;
-    thumbAngle($('modelStage'), modelAngle);
+    thumbAngle(thumb, modelAngle, isEnemy ? 2 : 3);
     setText($('modelTitle'), tr(type));
-    $('modelFile').href = mesh(type, 'glb');
+    $('modelFile').href = (isEnemy ? enemyMesh : mesh)(type, 'glb');
     $('modelFile').setAttribute('download', type + '.glb');
-    for (const button of $('modelTypes').querySelectorAll('[data-inspect]')) button.setAttribute('aria-pressed', String(button.dataset.inspect === type));
+    $('modelTypes').hidden = isEnemy;
+    $('enemyTypes').hidden = !isEnemy;
+    $('showTowerModels').setAttribute('aria-pressed',String(!isEnemy));
+    $('showEnemyModels').setAttribute('aria-pressed',String(isEnemy));
+    for (const button of isEnemy ? enemyModels : towerModels) {
+      button.setAttribute('aria-pressed', String(button.dataset.inspect === type));
+    }
   }
+  $('showTowerModels').addEventListener('click',()=>setModel(s.units.get(selected)?.type || 'pulse'));
+  $('showEnemyModels').addEventListener('click',()=>setModel('scout'));
   $('inspectModels').addEventListener('click', () => {
     pause();
-    setModel(s.units.get(selected)?.type || modelType);
+    setModel(modelType);
     $('modelDialog').showModal();
   });
-  for (const button of $('modelTypes').querySelectorAll('[data-inspect]')) {
+  for (const button of [...towerModels,...enemyModels]) {
     button.addEventListener('click', () => setModel(button.dataset.inspect));
   }
   $('turnLeft').addEventListener('click', () => setModel(modelType, modelAngle - 1));

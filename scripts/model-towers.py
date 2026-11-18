@@ -8,7 +8,6 @@ import bpy
 from mathutils import Vector
 
 OUT = Path(__file__).resolve().parents[1] / "public/assets/towers"
-OUT.mkdir(parents=True, exist_ok=True)
 FRAMES = 12
 SIZE = 224
 
@@ -230,25 +229,26 @@ def area(name, loc, energy, color, size):
     obj.location = loc
     aim(obj,(0,0,.65))
 
-def render(type_, build):
+def render(type_, build, *, output=OUT, frames_count=FRAMES, tile=SIZE, scale=3.03, center=.78):
+    output.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     build()
     parts = list(bpy.context.scene.objects)
     bpy.ops.object.select_all(action="DESELECT")
     for obj in parts:
         obj.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=str(OUT / (type_ + ".glb")), export_format="GLB",
+    bpy.ops.export_scene.gltf(filepath=str(output / (type_ + ".glb")), export_format="GLB",
                               use_selection=True, export_apply=True, export_yup=True)
     pivot = bpy.data.objects.new("Turntable",None)
     bpy.context.collection.objects.link(pivot)
     for obj in parts:
         obj.parent = pivot
     camera = bpy.data.cameras.new("Orthographic camera")
-    camera.type, camera.ortho_scale = "ORTHO", 3.03
+    camera.type, camera.ortho_scale = "ORTHO", scale
     cam = bpy.data.objects.new("Orthographic camera",camera)
     bpy.context.collection.objects.link(cam)
     cam.location = (0,-5.2,7.6)
-    aim(cam,(0,0,.78))
+    aim(cam,(0,0,center))
     scene = bpy.context.scene
     scene.camera = cam
     area("Warm key",(-3, -4, 6),520,(1,.89,.76),4)
@@ -261,7 +261,7 @@ def render(type_, build):
     scene.render.engine = "CYCLES"
     scene.cycles.samples = 72
     scene.cycles.use_denoising = False
-    scene.render.resolution_x = scene.render.resolution_y = SIZE
+    scene.render.resolution_x = scene.render.resolution_y = tile
     scene.render.resolution_percentage = 100
     scene.render.film_transparent = True
     scene.render.image_settings.file_format = "PNG"
@@ -269,18 +269,19 @@ def render(type_, build):
     scene.view_settings.view_transform = "AgX"
     with tempfile.TemporaryDirectory() as tmp:
         frames = []
-        for frame in range(FRAMES):
-            pivot.rotation_euler.z = -frame * 2 * math.pi / FRAMES
+        for frame in range(frames_count):
+            pivot.rotation_euler.z = -frame * 2 * math.pi / frames_count
             image = Path(tmp)/f"{frame:02}.png"
             scene.render.filepath = str(image)
             bpy.ops.render.render(write_still=True)
             frames.append(str(image))
         # Ship a compact sprite atlas generated directly from the exported mesh.
         import subprocess
-        subprocess.run(["magick","montage",*frames,"-tile","4x3","-geometry","+0+0",
-                        "-background","none","-quality","86",str(OUT/(type_+".webp"))],check=True)
+        subprocess.run(["magick","montage",*frames,"-tile",f"4x{frames_count//4}","-geometry","+0+0",
+                        "-background","none","-quality","86",str(output/(type_+".webp"))],check=True)
 
 builders = {"pulse": pulse, "frost": frost, "burst": burst,
             "sniper": sniper, "tesla": tesla, "venom": venom}
-for kind in os.environ.get("FMB_TOWER_MODELS", ",".join(builders)).split(","):
-    render(kind, builders[kind])
+if __name__ == "__main__":
+    for kind in os.environ.get("FMB_TOWER_MODELS", ",".join(builders)).split(","):
+        render(kind, builders[kind])

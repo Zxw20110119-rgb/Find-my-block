@@ -22,6 +22,7 @@ const document={getElementById:el,createElement:()=>new FakeElement(),createElem
 const gameButtons=t=>['pulse','frost','burst'].map(type=>Object.assign(new FakeElement(),{dataset:{[t]:type}}));
 el('towerShop').queries={'[data-tower]':gameButtons('tower')};
 el('modelTypes').queries={'[data-inspect]':gameButtons('inspect')};
+el('enemyTypes').queries={'[data-inspect]':['scout','runner','tank','boss'].map(inspect=>Object.assign(new FakeElement(),{dataset:{inspect}}))};
 el('modelStage').parentElement=new FakeElement();
 document.addEventListener=()=>{};
 const window={addEventListener:(event,handler)=>(events[event]??=[]).push(handler)};
@@ -48,6 +49,20 @@ for(const button of inspectButtons){
   el('turnRight').fire('click');
   assert.notEqual(el('modelStage').dataset.angle,before);
 }
+el('showEnemyModels').fire('click');
+assert.equal(el('modelTypes').hidden,true);
+assert.equal(el('enemyTypes').hidden,false);
+assert.equal(el('showEnemyModels').getAttribute('aria-pressed'),'true');
+for(const button of el('enemyTypes').querySelectorAll('[data-inspect]')){
+  button.fire('click');
+  assert.equal(el('modelFile').href,'assets/enemies/'+button.dataset.inspect+'.glb?v=1');
+  assert.match(el('modelStage').style.backgroundImage,/assets\/enemies\//);
+  for(let i=0;i<8;i++)el('turnRight').fire('click');
+  assert.equal(el('modelStage').dataset.angle,2,'Enemy preview should wrap after eight frames');
+}
+el('showTowerModels').fire('click');
+assert.equal(el('enemyTypes').hidden,true);
+assert.equal(el('modelStage').style.backgroundImage,'');
 const beforeGame=el('world').style.transform;
 el('defenseLink').fire('click');
 assert.ok(el('app').classList.contains('defense-mode'));

@@ -1,20 +1,10 @@
 /* SVG game artwork; coordinates follow the existing shared campus map. */
 globalThis.DefenseArt = (() => {
   const palettes = {
-    original:{pulse:'#6af0ba',frost:'#91d4ff',burst:'#ffc775'},
-    neon:{pulse:'#ff77d9',frost:'#bfa0ff',burst:'#ff8970'},
-    arctic:{pulse:'#d2fff4',frost:'#e2f5ff',burst:'#f5e6b5'}
+    original:{pulse:'#6af0ba',frost:'#91d4ff',burst:'#ffc775',sniper:'#f9a9df',tesla:'#bca0ff',venom:'#b5ec66'},
+    neon:{pulse:'#ff77d9',frost:'#bfa0ff',burst:'#ff8970',sniper:'#f7a785',tesla:'#8cbaff',venom:'#f59ae9'},
+    arctic:{pulse:'#d2fff4',frost:'#e2f5ff',burst:'#f5e6b5',sniper:'#fce2f1',tesla:'#e8e5ff',venom:'#edf6d8'}
   };
-  for(const p of Object.values(palettes))Object.assign(p,{sniper:'#f9a9df',tesla:'#bca0ff',venom:'#b5ec66'});
-  function model(type) {
-    const color=palettes.original[type], base='<ellipse cx="88" cy="142" rx="57" ry="19" fill="#122f36" opacity=".24"/><path d="M34 116 88 93 142 116v20l-54 25-54-25z" fill="#283f50" stroke="'+color+'" stroke-width="3"/><path d="M34 116 88 139 142 116 88 93z" fill="#456172"/>';
-    const shapes={
-      sniper:'<path d="M61 117V78l27-14 27 14v39l-27 14z" fill="#576977"/><path d="M70 85 107 34l15 9-37 56z" fill="#263443" stroke="#f9a9df" stroke-width="5"/><path d="M107 34l10-14 15 9-10 14z" fill="#edf5ff"/><circle cx="80" cy="87" r="9" fill="#f9a9df"/>',
-      tesla:'<path d="M76 125V55h24v70l-12 7z" fill="#506879"/><ellipse cx="88" cy="100" rx="33" ry="10" fill="#8b72cc" stroke="#e9dbff" stroke-width="3"/><ellipse cx="88" cy="78" rx="28" ry="9" fill="#8b72cc" stroke="#e9dbff" stroke-width="3"/><circle cx="88" cy="47" r="22" fill="#c8acff" stroke="white" stroke-width="3"/><path d="m90 27-12 22h14l-8 18 21-26H90z" fill="white"/>',
-      venom:'<path d="M52 115V63q0-17 18-17t18 17v52zM91 115V63q0-17 18-17t18 17v52z" fill="#314e48" stroke="#b5ec66" stroke-width="3"/><path d="M58 108V76h24v32zM97 108V76h24v32z" fill="#a0db4c"/><path d="M76 91 110 57l14 13-34 34z" fill="#526b56" stroke="#ddf6b7" stroke-width="3"/><circle cx="109" cy="90" r="4" fill="#efffc9"/>'
-    };
-    return 'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 176 176">'+base+shapes[type]+'</svg>');
-  }
   function monster(svg,type,color){
     const g=svg('g',{'class':'enemy-model enemy-'+type});
     const add=(tag,a)=>g.append(svg(tag,a));
@@ -37,18 +27,9 @@ globalThis.DefenseArt = (() => {
     }
     return g;
   }
-  function armor(svg,type,level,color) {
+  function armor(svg,level,color) {
     const g=svg('g',{'class':'tower-armor','pointer-events':'none'});
     const add=(tag,a)=>g.append(svg(tag,a));
-    if(type==='pulse') {
-      add('path',{d:'M-25 3-30 11-23 20M25 3 30 11 23 20',fill:'none',stroke:color,'stroke-width':4,'stroke-linejoin':'round'});
-      add('circle',{cx:0,cy:24,r:3,fill:color});
-    } else if(type==='frost') {
-      for(const x of [-25,25]) add('path',{d:'M'+x+' -6 l5 12-5 11-5-11z',fill:color,stroke:'#eaffff','stroke-width':1});
-    } else {
-      add('path',{d:'M-29 0-23-4-18 18-26 22zM29 0 23-4 18 18 26 22z',fill:'#39434f',stroke:color,'stroke-width':2});
-      add('path',{d:'M-24 8-19 6M24 8 19 6',stroke:color,'stroke-width':3});
-    }
     for(let i=0;i<level;i++) add('rect',{x:-8+i*7,y:27,width:4,height:4,rx:1,fill:color});
     if(level>=2)add('ellipse',{cx:0,cy:5,rx:30,ry:24,fill:'none',stroke:color,'stroke-width':1.5,'stroke-dasharray':'4 6'});
     if(level>=3)add('path',{d:'M-12 -32-7-27 0-35 7-27 12-32',fill:'none',stroke:color,'stroke-width':2});
@@ -104,5 +85,5 @@ globalThis.DefenseArt = (() => {
     }
     return g;
   }
-  return {palettes,armor,shot,model,monster};
+  return {palettes,armor,shot,monster};
 })();

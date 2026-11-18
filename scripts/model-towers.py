@@ -1,5 +1,6 @@
 """Run with Blender: blender -b -t 6 -P scripts/model-towers.py."""
 import math
+import os
 import tempfile
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from mathutils import Vector
 OUT = Path(__file__).resolve().parents[1] / "public/assets/towers"
 OUT.mkdir(parents=True, exist_ok=True)
 FRAMES = 12
-SIZE = 176
+SIZE = 224
 
 def srgb(code):
     def linear(x):
@@ -33,7 +34,7 @@ def finish(obj, label, mat, bevel=.035):
     obj.data.materials.append(mat)
     if bevel:
         b = obj.modifiers.new("Machined edges", "BEVEL")
-        b.width, b.segments = bevel, 3
+        b.width, b.segments = bevel, 2
         obj.modifiers.new("Weighted normals", "WEIGHTED_NORMAL")
     return obj
 
@@ -70,14 +71,21 @@ def base(accent, steel, dark, light, n=8):
     cone("Sloped armor", (0,0,.38), .85, .61, .24, steel, n)
     cylinder("Turret bearing", (0,0,.53), .57, .13, dark)
     ring("Power ring", (0,0,.59), .49, .026, light)
+    for j in range(4):
+        a = math.pi * (j / 2 + .25)
+        x,y = math.cos(a), math.sin(a)
+        plate = box("Inset chassis panel", (.865*x,.865*y,.133), (.28,.16,.15), steel, .028)
+        plate.rotation_euler.z = a-math.pi/2
+        strip = box("Chassis light strip", (.942*x,.942*y,.139), (.145,.025,.04), light, .012)
+        strip.rotation_euler.z = a-math.pi/2
     for i in range(n):
         angle = i*2*math.pi/n
         cylinder("Steel fastener", (.78*math.cos(angle), .78*math.sin(angle), .307), .041, .04, steel, 6, bevel=.007)
 
 def pulse():
     steel = material("Slate alloy","455969",.6)
-    dark = material("Dark graphite","20333D",.48)
-    accent = material("Teal enamel","0F8E71",.33)
+    dark = material("Dark graphite","2A424E",.48)
+    accent = material("Teal enamel","1BAB8B",.33)
     light = material("Ion green","72FFD0",.1,.25,.78)
     base(accent,steel,dark,light)
     cone("Swivel pedestal",(0,0,.76),.43,.31,.35,steel)
@@ -85,11 +93,18 @@ def pulse():
     box("Upper armor",(0,-.14,1.33),(.58,.53,.19),steel)
     for x in (-.28,.28):
         box("Rail housing",(x,.31,1.12),(.32,.99,.31),dark)
+        box("Rail outer guard",(x*1.56,.22,1.16),(.11,.71,.26),accent,.032)
+        for y in (-.03,.16,.35):
+            box("Rail vent",(x*1.76,y,1.17),(.025,.065,.115),dark,.008)
         box("Conductive rail",(x,.39,1.285),(.21,.74,.041),light,.017)
         cylinder("Pulse emitter",(x,.91,1.13),.122,.25,steel,16,(0,1,0))
         ring("Emitter edge",(x,1.04,1.13),.09,.022,light,(0,1,0))
         cylinder("Lens",(x,1.043,1.13),.072,.022,dark,24,(0,1,0))
-    cylinder("Sensor",(0,.24,1.43),.112,.09,light,16)
+    cylinder("Sensor collar",(0,.02,1.43),.145,.11,dark,12)
+    cylinder("Sensor",(0,.02,1.49),.105,.052,light,12)
+    box("Rear armored cover",(0,-.42,1.093),(.66,.23,.38),steel)
+    for x in (-.19,0,.19):
+        box("Rear status indicator",(x,-.55,1.14),(.055,.024,.105),light,.012)
 
 def frost():
     steel = material("Pearl blue armor","83A9BB",.55)
@@ -104,6 +119,13 @@ def frost():
     cone("Crystal lower cut",(0,0,1.12),.22,.32,.42,crystal,6)
     cylinder("Crystal core",(0,0,1.36),.32,.21,crystal,6)
     cone("Crystal tip",(0,0,1.65),.32,0,.43,crystal,6,tilt=.1)
+    for i in range(3):
+        a=i*2*math.pi/3
+        x,y=math.cos(a),math.sin(a)
+        prong=box("Crystal clamp",(.38*x,.38*y,1.11),(.18,.19,.51),dark,.035)
+        prong.rotation_euler.z=a
+        cone("Cold exhaust cap",(.53*x,.53*y,.77),.148,.11,.18,accent,6)
+
     for i in range(5):
         a = i*2*math.pi/5
         x,y = math.cos(a), math.sin(a)
@@ -123,12 +145,79 @@ def burst():
         box("Hinged side armor",(x,-.02,1.13),(.20,1.02,.68),accent)
         cylinder("Hinge cap",(x*1.14,-.11,.93),.16,.067,steel,24,(1,0,0))
         box("Signal trim",(x,.06,1.495),(.128,.64,.038),light)
+    box("Reactor lid",(0,-.53,1.5),(.81,.36,.115),steel)
+    for x in (-.31,-.16,0,.16,.31):
+        box("Rear cooling vent",(x,-.706,1.25),(.062,.035,.20),dark,.008)
     for x,z in [(-.32,1.16),(.32,1.16),(0,1.50)]:
         cylinder("Blast tube",(x,.28,z),.222,1.12,steel,12,(0,1,0))
         cylinder("Tube sleeve",(x,.54,z),.235,.25,dark,12,(0,1,0))
         ring("Muzzle gasket",(x,.865,z),.173,.056,accent,(0,1,0))
         cylinder("Deep barrel",(x,.862,z),.148,.045,dark,24,(0,1,0))
         ring("Hot throat",(x,.891,z),.097,.022,light,(0,1,0))
+
+def sniper():
+    steel = material("Pale gunmetal", "B5BBC9", .53)
+    dark = material("Blue graphite", "2B344C", .5)
+    accent = material("Magenta ceramic", "A43B7D", .3)
+    light = material("Pink rangefinder", "FF9FE0", .08, .26, .85)
+    base(accent,steel,dark,light)
+    box("Raised swivel",(0,0,.78),(.54,.56,.4),dark)
+    box("Beveled instrument housing",(0,-.17,1.1),(.54,.69,.41),steel)
+    box("Rear battery",(0,-.55,1.08),(.43,.3,.34),accent)
+    box("Long emitter shroud",(0,.24,1.20),(.34,.81,.30),dark)
+    box("Rail marker",(0,.21,1.36),(.115,.62,.038),light,.012)
+    cylinder("Long lens tube",(0,.68,1.2),.09,.78,steel,12,(0,1,0))
+    box("Optical muzzle guard",(0,1.075,1.2),(.30,.23,.24),accent,.032)
+    ring("Optical lens frame",(0,1.198,1.2),.080,.024,dark,(0,1,0))
+    cylinder("Emitter lens",(0,1.194,1.2),.058,.028,light,16,(0,1,0))
+    for x in (-.26,.26):
+        box("Adjustable side cheek",(x,-.12,1.14),(.13,.55,.26),accent,.038)
+        box("Side indicator",(x*1.27,-.25,1.17),(.024,.21,.058),light,.009)
+    cylinder("Tracking optic",(0,-.26,1.41),.10,.16,dark,12,(0,1,0))
+    cylinder("Tracking optic lens",(0,-.174,1.41),.064,.025,light,16,(0,1,0))
+
+def tesla():
+    steel = material("Silver violet alloy", "9592BD", .5)
+    dark = material("Coil graphite", "332C4D", .44)
+    accent = material("Deep violet ceramic", "6544A8", .25)
+    light = material("Violet current", "D3B0FF", .1, .26, .92)
+    base(accent,steel,dark,light,6)
+    cylinder("Insulated pedestal",(0,0,.79),.40,.36,dark,12)
+    cylinder("Core stem",(0,0,1.23),.19,.8,steel,12)
+    for i,r in enumerate((.45,.38,.31)):
+        z=.94+.24*i
+        cylinder("Conductive coil disc",(0,0,z),r,.105,accent,16)
+        ring("Live winding",(0,0,z+.024),r-.027,.032,light)
+    for i in range(3):
+        a=i*2*math.pi/3
+        x,y=math.cos(a),math.sin(a)
+        cone("Insulated support",(.51*x,.51*y,.78),.16,.105,.43,steel,5)
+        cylinder("Auxiliary contact",(.51*x,.51*y,1.02),.084,.08,light,12)
+    cone("Crown socket",(0,0,1.58),.19,.24,.19,dark,8)
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2,radius=.255,location=(0,0,1.81))
+    finish(bpy.context.object,"Arc orb",light,0)
+    ring("Crown halo",(0,0,1.76),.265,.028,steel)
+
+def venom():
+    steel = material("Pale moss alloy", "839B77", .52)
+    dark = material("Graphite green", "273F3B", .44)
+    accent = material("Olive enamel", "53793A", .25)
+    light = material("Lime reagent", "BAFC60", .08, .23, .68)
+    base(accent,steel,dark,light)
+    box("Reagent pump",(0,.06,.88),(.72,.66,.39),dark)
+    for x in (-.36,.36):
+        cylinder("Reagent tank",(x,-.25,1.18),.22,.76,steel,12)
+        box("Reagent sight glass",(x,-.456,1.18),(.175,.079,.41),light,.026)
+        cylinder("Tank bottom ring",(x,-.25,.88),.232,.12,dark,12)
+        cylinder("Tank cap",(x,-.25,1.59),.232,.13,accent,12)
+        cylinder("Cap indicator",(x,-.25,1.67),.088,.047,light,12)
+    box("Pump face",(0,.36,1.10),(.56,.33,.31),accent)
+    cylinder("Reagent nozzle",(0,.63,1.125),.18,.40,steel,12,(0,1,0))
+    ring("Nozzle shroud",(0,.847,1.125),.132,.053,dark,(0,1,0))
+    cylinder("Reagent charge",(0,.850,1.125),.103,.022,light,16,(0,1,0))
+    for x in (-.4,.4):
+        box("Tank restraint",(x,.008,1.15),(.255,.13,.24),dark)
+        box("Restraint trim",(x,.078,1.15),(.15,.027,.055),light,.009)
 
 def aim(obj, point):
     obj.rotation_euler = (Vector(point) - obj.location).to_track_quat("-Z","Y").to_euler()
@@ -155,7 +244,7 @@ def render(type_, build):
     for obj in parts:
         obj.parent = pivot
     camera = bpy.data.cameras.new("Orthographic camera")
-    camera.type, camera.ortho_scale = "ORTHO", 2.92
+    camera.type, camera.ortho_scale = "ORTHO", 3.03
     cam = bpy.data.objects.new("Orthographic camera",camera)
     bpy.context.collection.objects.link(cam)
     cam.location = (0,-5.2,7.6)
@@ -170,7 +259,7 @@ def render(type_, build):
     scene.world.node_tree.nodes.get("Background").inputs[0].default_value = (.27,.31,.35,1)
     scene.world.node_tree.nodes.get("Background").inputs[1].default_value = .4
     scene.render.engine = "CYCLES"
-    scene.cycles.samples = 24
+    scene.cycles.samples = 72
     scene.cycles.use_denoising = False
     scene.render.resolution_x = scene.render.resolution_y = SIZE
     scene.render.resolution_percentage = 100
@@ -189,7 +278,9 @@ def render(type_, build):
         # Ship a compact sprite atlas generated directly from the exported mesh.
         import subprocess
         subprocess.run(["magick","montage",*frames,"-tile","4x3","-geometry","+0+0",
-                        "-background","none","-quality","91",str(OUT/(type_+".webp"))],check=True)
+                        "-background","none","-quality","86",str(OUT/(type_+".webp"))],check=True)
 
-for kind, build in [("pulse",pulse),("frost",frost),("burst",burst)]:
-    render(kind, build)
+builders = {"pulse": pulse, "frost": frost, "burst": burst,
+            "sniper": sniper, "tesla": tesla, "venom": venom}
+for kind in os.environ.get("FMB_TOWER_MODELS", ",".join(builders)).split(","):
+    render(kind, builders[kind])

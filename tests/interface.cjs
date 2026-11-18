@@ -11,7 +11,7 @@ class FakeElement{
   setAttribute(k,v){this.attrs[k]=String(v)}getAttribute(k){return this.attrs[k]}removeAttribute(k){delete this.attrs[k]}
   addEventListener(k,f){(this.handlers[k]??=[]).push(f)}
   fire(k,options={}){for(const fn of this.handlers[k]??[]) fn({button:0,preventDefault(){},stopPropagation(){},target:this,...options});}
-  querySelectorAll(selector){return this.queries?.[selector]??[]}
+  querySelectorAll(selector){const key=selector.match(/^\[data-(tower|inspect)\]$/)?.[1];return [...(this.queries?.[selector]??[]),...this.children.filter(child=>key&&child.dataset?.[key])];}
   replaceChildren(...items){this.children=items;if(items.length&&items[0].value!==undefined)this.value=items[0].value}
   append(...items){this.children.push(...items)}add(option){this.children.push(option)}
   getBoundingClientRect(){return {left:0,top:0,width:390,height:844}}setPointerCapture(){}focus(){}
@@ -30,7 +30,7 @@ const browser=vm.createContext({document,window,Date,Intl,URL,URLSearchParams,Op
   localStorage:{getItem:k=>local.get(k)||null,setItem:(k,v)=>local.set(k,v)},
   location:{href:'https://example.test/',search:''},history:{replaceState(){},pushState(){}},
   matchMedia:()=>({matches:false}),ResizeObserver:class{observe(){}},requestAnimationFrame(){return 1},cancelAnimationFrame(){},setInterval(){}});
-for(const file of ['calendar.js','campus.js','app.js','features.js','defense-engine.js','campus-defense.js']){
+for(const file of ['calendar.js','campus.js','app.js','features.js','defense-engine.js','defense-art.js','campus-defense.js']){
   vm.runInContext(fs.readFileSync(path.join(dist,file),'utf8'),browser,{filename:file});
   if(file==='calendar.js')browser.CampusCalendar=window.CampusCalendar;
 }
@@ -38,6 +38,16 @@ for(const file of ['calendar.js','campus.js','app.js','features.js','defense-eng
 assert.ok(!html.includes('data-nav'),'Navigation surfaces must remain on the page');
 assert.equal(ids.size,[...html.matchAll(/\bid="([^"]+)"/g)].length,'Every control ID must be unique');
 assert.match(html, /id="battleMap"[^>]+aria-hidden="true"/,'Navigation starts with no game actions');
+const inspectButtons=el('modelTypes').querySelectorAll('[data-inspect]');
+assert.deepEqual(inspectButtons.map(button=>button.dataset.inspect),['pulse','frost','burst','sniper','tesla','venom']);
+for(const button of inspectButtons){
+  button.fire('click');
+  assert.match(el('modelFile').href,new RegExp('assets/towers/'+button.dataset.inspect+'\\.glb'));
+  assert.equal(el('modelFile').getAttribute('download'),button.dataset.inspect+'.glb');
+  const before=el('modelStage').dataset.angle;
+  el('turnRight').fire('click');
+  assert.notEqual(el('modelStage').dataset.angle,before);
+}
 const beforeGame=el('world').style.transform;
 el('defenseLink').fire('click');
 assert.ok(el('app').classList.contains('defense-mode'));

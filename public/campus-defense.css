@@ -83,9 +83,12 @@
 .base{fill:#1e604d;stroke:#ebfff1;stroke-width:3}
 .map-label{paint-order:stroke;stroke:#183429;stroke-width:7;stroke-linejoin:round;fill:#fff;font-size:22px;font-weight:850;text-anchor:middle}
 .tower-model{display:block;aspect-ratio:1;background-repeat:no-repeat;background-size:400% 300%;background-position:var(--frame-x,66.6667%) var(--frame-y,0%)}
-.tower-model[data-model=pulse]{background-image:url("assets/towers/pulse.webp")}
-.tower-model[data-model=frost]{background-image:url("assets/towers/frost.webp")}
-.tower-model[data-model=burst]{background-image:url("assets/towers/burst.webp")}
+.tower-model[data-model=pulse]{background-image:url("assets/towers/pulse.webp?v=3d2")}
+.tower-model[data-model=frost]{background-image:url("assets/towers/frost.webp?v=3d2")}
+.tower-model[data-model=burst]{background-image:url("assets/towers/burst.webp?v=3d2")}
+.tower-model[data-model=sniper]{background-image:url("assets/towers/sniper.webp?v=3d2")}
+.tower-model[data-model=tesla]{background-image:url("assets/towers/tesla.webp?v=3d2")}
+.tower-model[data-model=venom]{background-image:url("assets/towers/venom.webp?v=3d2")}
 .def-thumb{width:56px;flex:none}
 
 .pad .unit-sprite{overflow:hidden}
@@ -100,7 +103,7 @@ body:is(.choosing-position,.choosing-road) #battleMap{opacity:.55}
 .def-dialog li+li{margin-top:8px}
 .def-dialog ol{padding-left:23px}
 #resetDialog p{margin:8px 0 12px}
-.def-model-stage{display:grid;place-items:center;margin-top:9px;border:1px solid #d5e6db;border-radius:14px;background:radial-gradient(ellipse at 50% 53%,#e7f6ec,#d5eadf 68%);cursor:grab;touch-action:pan-y}
+.def-model-stage{display:grid;place-items:center;margin-top:9px;border:1px solid #d5e6db;border-radius:14px;background:radial-gradient(ellipse at 50% 52%,#f9fefb,#cbdfd5 85%);cursor:grab;touch-action:pan-y}
 .def-model-stage:active{cursor:grabbing}
 #modelStage{width:min(100%,265px)}
 .def-model-turn,.def-model-types{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:8px}
@@ -123,4 +126,4 @@ body:is(.choosing-position,.choosing-road) #battleMap{opacity:.55}
 .tower-armor{pointer-events:none}
 .def-tower:focus-visible,.def-finish select:focus-visible{outline:3px solid #1a73e8;outline-offset:2px}
 
-.def-model-types{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.enemy-model{pointer-events:none}.def-shop{max-height:200px;overflow:auto}.def-tower .def-thumb{width:49px}
+.def-model-types{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.enemy-model{pointer-events:none}.def-shop{max-height:200px;overflow:auto}.def-tower .def-thumb{width:53px}

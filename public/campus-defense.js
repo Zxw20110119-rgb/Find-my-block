@@ -34,13 +34,6 @@
     button.append(thumb,name,price);$('towerShop').append(button);
     const inspect=document.createElement('button');inspect.type='button';inspect.className='def-quiet';inspect.dataset.inspect=type;inspect.dataset.copy=type;$('modelTypes').append(inspect);
   }
-  function vectorThumb(el,type){
-    const vector=['sniper','tesla','venom'].includes(type);
-    el.style.backgroundImage=vector?'url("'+DefenseArt.model(type)+'")':'';
-    el.style.backgroundSize=vector?'contain':'';
-    el.style.backgroundPosition=vector?'center':'';
-  }
-  for(const el of document.querySelectorAll('.tower-model'))vectorThumb(el,el.dataset.model);
   let locale = lang === 'zh' ? 1 : 0;
   const tr = key => copy[key][locale];
   const setText = (el, value) => { if (el.textContent !== String(value)) el.textContent = value; };
@@ -53,7 +46,7 @@
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const deck = $('defenseDeck');
   let finish = 'original';
-  try { const saved=localStorage.getItem('fmb-tower-finish'); if(DefenseArt.palettes[saved]) finish=saved; } catch {}
+  try { const saved=localStorage.getItem('fmb-tower-finish'); if(Object.hasOwn(DefenseArt.palettes,saved)) finish=saved; } catch {}
   const finishLabel=document.createElement('label'), finishSelect=document.createElement('select');
   finishLabel.className='def-finish'; finishSelect.id='towerFinish';
   const finishText=document.createElement('span');
@@ -73,12 +66,11 @@
   let minimized = false;
   const mapIsPicking = () => selectingPosition || choosingRoad();
   const campusBounds = [[365,85],[1006,930]];
-  const tile = 176, frameCount = 12;
+  const tile = 224, frameCount = 12;
   const wrapAngle = angle => (angle % frameCount + frameCount) % frameCount;
   const angleFor = (dx,dy) => wrapAngle(Math.round(Math.atan2(dx,-dy) * frameCount / (2 * Math.PI)));
-  const mesh = (type, ext) => 'assets/towers/' + type + '.' + ext;
+  const mesh = (type, ext) => 'assets/towers/' + type + '.' + ext + '?v=3d2';
   function spriteAngle(sprite, angle) {
-    if(sprite.dataset.vector==='true')return;
     if (sprite.dataset.angle === String(angle)) return;
     sprite.dataset.angle = angle;
     sprite.setAttribute('viewBox', (angle % 4 * tile) + ' ' + (Math.floor(angle / 4) * tile) + ' ' + tile + ' ' + tile);
@@ -116,7 +108,7 @@
     const title = svg('title'), letter = svg('text',{class:'letter'}), badge = svg('g'), level = svg('text', {x:23, y:19, class:'level'});
     const turret = svg('g', {class:'unit-stage'});
     const sprite = svg('svg', {x:-36,y:-42,width:72,height:72,overflow:'hidden', class:'unit-sprite'});
-    const atlas = svg('image', {width:704,height:528, 'aria-hidden':'true'});
+    const atlas = svg('image', {width:896,height:672, 'aria-hidden':'true'});
     sprite.append(atlas);
     turret.append(svg('circle',{cy:5,r:26,class:'unit-rim'}), sprite);
     letter.textContent = pad.label;
@@ -162,20 +154,16 @@
       if (pad.model !== (unit?.type ?? null)) {
         pad.model = unit?.type ?? null;
         if (unit) {
-          const vector=['sniper','tesla','venom'].includes(unit.type);
-          sprite.dataset.vector=String(vector);delete sprite.dataset.angle;
-          atlas.setAttribute('width',vector?176:704);atlas.setAttribute('height',vector?176:528);
-          atlas.setAttribute('href',vector?DefenseArt.model(unit.type):mesh(unit.type,'webp'));
-          if(vector)sprite.setAttribute('viewBox','0 0 176 176');else spriteAngle(sprite,2);
-        }
-        else atlas.removeAttribute('href');
+          atlas.setAttribute('href', mesh(unit.type, 'webp'));
+          spriteAngle(sprite, 2);
+        } else atlas.removeAttribute('href');
       }
       if (unit) {
         el.style.setProperty('--tower', towerColor(unit.type)); setText(level, unit.level);
         const artKey=unit.type+'|'+unit.level+'|'+finish;
         if(pad.artKey!==artKey){
           pad.armor?.remove();
-          pad.armor=DefenseArt.armor(svg,unit.type,unit.level,towerColor(unit.type));
+          pad.armor=DefenseArt.armor(svg,unit.level,towerColor(unit.type));
           turret.append(pad.armor); pad.artKey=artKey;
         }
       } else {pad.armor?.remove();pad.armor=null;pad.artKey=null;}
@@ -196,7 +184,6 @@
     if (!unit) return;
     const tower = game.stats(unit.type, unit.level), cost = game.upgradeCost(unit);
     $('unitIcon').dataset.model = unit.type;
-    vectorThumb($('unitIcon'),unit.type);
     $('unitName').textContent = tr(unit.type) + ' · ' + t('Level ', '等级 ') + unit.level;
     $('unitStats').textContent = t(tower.damage + ' damage per shot', '每发伤害 ' + tower.damage);
     $('upgrade').textContent = cost ? t('Upgrade', '升级') + ' · ⬡ ' + cost : t('Max level', '满级');
@@ -375,15 +362,10 @@
     modelType = type;
     modelAngle = wrapAngle(angle);
     $('modelStage').dataset.model = type;
-    vectorThumb($('modelStage'),type);
     thumbAngle($('modelStage'), modelAngle);
     setText($('modelTitle'), tr(type));
-    const vector=['sniper','tesla','venom'].includes(type);
-    $('modelFile').href=vector?DefenseArt.model(type):mesh(type,'glb');
-    $('modelFile').setAttribute('download',type+(vector?'.svg':'.glb'));
-    $('modelFile').textContent=vector?t('Download vector model (.svg)','下载矢量模型 (.svg)'):tr('download');
-    $('turnLeft').disabled=$('turnRight').disabled=vector;
-    document.querySelector('[data-copy="dragModel"]').textContent=vector?t('Isometric vector model','等距矢量模型'):tr('dragModel');
+    $('modelFile').href = mesh(type, 'glb');
+    $('modelFile').setAttribute('download', type + '.glb');
     for (const button of $('modelTypes').querySelectorAll('[data-inspect]')) button.setAttribute('aria-pressed', String(button.dataset.inspect === type));
   }
   $('inspectModels').addEventListener('click', () => {
@@ -397,7 +379,7 @@
   $('turnLeft').addEventListener('click', () => setModel(modelType, modelAngle - 1));
   $('turnRight').addEventListener('click', () => setModel(modelType, modelAngle + 1));
   stage.addEventListener('pointerdown', event => {
-    if (!event.isPrimary || event.button !== 0 || ['sniper','tesla','venom'].includes(modelType)) return;
+    if (!event.isPrimary || event.button !== 0) return;
     modelDrag = {id:event.pointerId, x:event.clientX, angle:modelAngle};
     stage.setPointerCapture(event.pointerId);
   });
